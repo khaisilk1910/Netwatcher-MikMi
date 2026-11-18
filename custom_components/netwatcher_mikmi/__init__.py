@@ -39,6 +39,8 @@ class RuntimeData:
     vol.Optional("entry_id", default=""): str,
     vol.Optional("status", default="all"): vol.In(["all", "online", "offline", "unknown", "dynamic", "unapproved"]),
     vol.Optional("search", default=""): str,
+    vol.Optional("sort_by", default="recent"): vol.In(["recent", "name", "ip"]),
+    vol.Optional("sort_dir", default="desc"): vol.In(["asc", "desc"]),
     vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0, max=100000)),
     vol.Optional("limit", default=100): vol.All(vol.Coerce(int), vol.Range(min=1, max=200)),
 })
@@ -53,7 +55,8 @@ def ws_inventory(hass: HomeAssistant, connection: websocket_api.ActiveConnection
         connection.send_error(msg["id"], "not_found", "Netwatcher entry not found")
         return
     coord = runtime.coordinator
-    records, count = coord.inventory.rows(msg["status"], msg["search"], msg["offset"], msg["limit"])
+    records, count = coord.inventory.rows(msg["status"], msg["search"], msg["offset"], msg["limit"],
+                                           msg["sort_by"], msg["sort_dir"])
     connection.send_result(msg["id"], {
         "devices": records, "count": count, "statistics": coord.inventory.statistics(),
         "source_health": coord.source_health, "entry_id": coord.entry.entry_id,

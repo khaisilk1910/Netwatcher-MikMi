@@ -6,6 +6,7 @@ Xiaomi client lists can aggregate a whole mesh; no node is inferred by default.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from ipaddress import ip_address
 from typing import Any
 
 from .const import MAX_DEVICES
@@ -270,7 +271,8 @@ class Inventory:
             "unapproved": sum(not d.get("approved", False) for d in data),
         }
 
-    def rows(self, status: str = "all", search: str = "", offset: int = 0, limit: int = 100) -> tuple[list[dict[str, Any]], int]:
+    def rows(self, status: str = "all", search: str = "", offset: int = 0, limit: int = 100,
+             sort_by: str = "recent", sort_dir: str = "desc") -> tuple[list[dict[str, Any]], int]:
         needle = search.strip().casefold()[:100]
         filtered = []
         for record in self.devices.values():
@@ -284,5 +286,26 @@ class Inventory:
             if needle and needle not in " ".join(str(record.get(k) or "") for k in ("mac", "ip", "comment", "host_name", "xiaomi_name", "alias", "ap_name", "port")).casefold():
                 continue
             filtered.append({**record, "name": name})
-        filtered.sort(key=lambda d: (-float(d.get("last_seen_epoch") or 0), d["mac"]))
+        if sort_by == "name":
+            filtered.sort(key=lambda d: (d["name"].casefold(), d["mac"]),
+                          reverse=sort_dir == "desc")
+        elif sort_by == "ip":
+            # Sort by numeric address, not lexicographic text: .9 < .100.
+            # Missing/invalid addresses always remain at the bottom.
+            ipv4, ipv6, missing = [], [], []
+            for device in filtered:
+                try:
+                    address = ip_address(str(device.get("ip") or ""))
+                except ValueError:
+                    missing.append(device)
+                    continue
+                (ipv4 if address.version == 4 else ipv6).append((int(address), device))
+            for group in (ipv4, ipv6):
+                group.sort(key=lambda item: (item[0], item[1]["name"].casefold(), item[1]["mac"]),
+                           reverse=sort_dir == "desc")
+            missing.sort(key=lambda d: (d["name"].casefold(), d["mac"]))
+            filtered = [device for _address, device in ipv4 + ipv6] + missing
+        else:
+            # Preserve the preexisting default (most recently seen first).
+            filtered.sort(key=lambda d: (-float(d.get("last_seen_epoch") or 0), d["mac"]))
         return filtered[offset:offset + min(limit, 200)], len(filtered)
