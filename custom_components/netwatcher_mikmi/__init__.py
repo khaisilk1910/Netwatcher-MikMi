@@ -23,7 +23,7 @@ from .log_monitor import RouterLogMonitor
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "device_tracker"]
-COLUMN_IDS = ("device", "ip", "state", "link", "port", "dhcp", "approved")
+COLUMN_IDS = ("device", "ip", "state", "port", "dhcp", "approved")
 
 
 @dataclass
@@ -253,11 +253,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     preferences_store = Store(hass, 1, f"{DOMAIN}_columns_{entry.entry_id}")
     preferences_data = await preferences_store.async_load() or {}
     column_preferences = {}
+    preferences_migrated = False
     for user_id, columns in preferences_data.get("users", {}).items():
         if isinstance(user_id, str) and isinstance(columns, list):
             valid = [col for col in dict.fromkeys(columns) if col in COLUMN_IDS]
             if valid:
                 column_preferences[user_id] = valid
+            if valid != columns:
+                preferences_migrated = True
+        else:
+            preferences_migrated = True
+    # Drop the retired Link key from per-user HA Store without blocking HA startup.
+    if preferences_migrated:
+        preferences_store.async_delay_save(lambda: {"users": column_preferences}, 2)
     hardware = MikMiHardwareCoordinator(
         hass, entry, coord._router, hardware_store, previous_hardware, coord.zalo
     )
