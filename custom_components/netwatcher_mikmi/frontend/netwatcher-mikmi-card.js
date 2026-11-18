@@ -1,8 +1,13 @@
-/* Netwatcher MikMi Lovelace Card v0.4.1-beta.3 (no dependencies, no credentials).
+/* Netwatcher MikMi Lovelace Card v0.4.1-beta.5 (no dependencies, no credentials).
  * All device-provided strings are inserted with textContent, never innerHTML.
  * Backend WebSocket checks administrator privileges on every request.
  */
 const CARD_TAG = 'netwatcher-mikmi-card';
+const DEVICE_COLUMNS = Object.freeze([
+  ['device','Device'], ['ip','IP'], ['state','State'], ['link','Link'],
+  ['port','AP / port'], ['dhcp','DHCP'], ['approved','Approved'],
+]);
+
 const STORAGE_STYLES = `
 /* Dashboard: compact, responsive, uses native HA themes and state accents. */
 :host{--nwm-teal:#06d6a0;--nwm-amber:#ffb45c;--nwm-red:#fb7185}
@@ -109,11 +114,14 @@ border-radius:7px;padding:5px 8px;cursor:pointer;white-space:nowrap}
 .stat-online strong{color:#10b981}.stat-offline strong{color:#fb7185}.stat-dynamic strong{color:#f59e0b}.stat-unapproved strong{color:#a78bfa}
 .device-label .mi-icon{width:17px;height:17px;color:#0ea5e9}.device-label span{overflow:hidden;text-overflow:ellipsis}
 .connection-pill .mi-icon{width:16px;height:16px;color:#38bdf8}
+.connection-pill.link-wifi .mi-icon,.device-label.link-wifi .mi-icon{color:#10b981}
+.connection-pill.link-lan .mi-icon,.device-label.link-lan .mi-icon{color:#0ea5e9}
+.zalo-hint{margin:7px 0 12px;padding:9px 12px;border-left:3px solid var(--divider-color);background:var(--secondary-background-color);border-radius:7px;line-height:1.6;font-size:12px;color:var(--secondary-text-color)}
+.zalo-hint.warning{border-left-color:var(--nwm-amber)}
 .state-pill,.log-level{display:inline-flex;align-items:center;gap:5px;font-weight:750;padding:5px 9px}
 .state-pill .mi-icon,.pill .mi-icon,.log-level .mi-icon{width:14px;height:14px;vertical-align:middle}
 .state-pill.online{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.09);color:#0eaf82}
 .state-pill.offline{border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.09);color:#e75a78}
-.state-pill.unknown{color:var(--secondary-text-color)}
 .pill.dynamic{color:#d98b0c;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.30);display:inline-flex;gap:5px;align-items:center}
 .log-level{border-radius:8px;background:rgba(14,165,233,.09);color:var(--secondary-text-color);font-size:11px}
 .log-level.warn{background:rgba(245,158,11,.13);color:#d98b0c}
@@ -121,6 +129,80 @@ border-radius:7px;padding:5px 8px;cursor:pointer;white-space:nowrap}
 .nwm-theme-mono .icon-chip{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color);box-shadow:none}
 .nwm-theme-mono .tabs .tab-icon,.nwm-theme-mono .gauge-symbol{color:var(--secondary-text-color)}
 @media(max-width:600px){.header{margin:-10px -10px 12px;padding:16px 12px}.brand-avatar{width:42px;height:42px}.brand-title-group .title{font-size:16px}.brand-subtitle{font-size:8px;letter-spacing:.5px}.header .hint{font-size:10px}.tabs button{padding:9px}.tabs button .mi-icon{width:16px;height:16px}.stat-caption span:last-child{font-size:10px}}
+/* Beta.5 responsive density. Prefer container width over viewport width. */
+:host{container-type:inline-size;min-width:0}
+ha-card{border-radius:14px!important;padding:12px;box-shadow:var(--ha-card-box-shadow,none);max-width:100%;box-sizing:border-box}
+.header{min-height:0;margin:-12px -12px 10px;padding:12px 14px;border-radius:14px 14px 0 0}
+.brand-avatar{width:37px;height:37px}.brand-head{gap:9px}
+.brand-title-group .title{font-size:17px}.brand-subtitle{letter-spacing:.4px;font-size:9px;margin-top:2px}
+.tabs{gap:5px;margin:6px 0 10px;padding:2px 0 4px}
+.tabs button{padding:7px 9px;gap:5px;font-size:12px;border-radius:9px}
+.stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:8px 0 10px}
+.stat{padding:8px 9px;border-radius:11px;min-width:0}
+.stat strong{font-size:clamp(17px,2.2vw,23px);margin:4px 0 0}
+.stat-caption{gap:5px}.stat-caption span:last-child{font-size:10px;overflow-wrap:anywhere}
+.stat .icon-chip{width:23px;height:23px;border-radius:7px}.stat .icon-chip .mi-icon{width:14px;height:14px}
+.toolbar{align-items:center;gap:6px;margin:7px 0}.toolbar input,.toolbar select,.toolbar button,.footer button{min-height:32px;padding:6px 9px;border-radius:8px;font-size:12px}
+.toolbar input{min-width:90px}.sort-select{max-width:130px}
+.column-panel{position:relative;flex:none;z-index:3;font-size:12px}
+.column-panel summary{cursor:pointer;list-style:none;border:1px solid var(--divider-color);border-radius:8px;padding:7px 10px;background:var(--card-background-color);user-select:none}
+.column-panel summary::before{content:'☷ ';color:var(--primary-color)}
+.column-panel[open] summary{border-color:var(--primary-color)}
+.column-choices{position:absolute;top:calc(100% + 4px);right:0;width:max-content;min-width:150px;max-width:calc(100vw - 40px);max-height:70vh;overflow:auto;padding:8px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);box-shadow:0 10px 28px rgba(0,0,0,.21);display:grid;gap:3px}
+.column-choice{display:flex;align-items:center;gap:8px;padding:6px 7px;cursor:pointer;border-radius:7px}
+.column-choice:focus-within,.column-choice:hover{background:var(--secondary-background-color)}
+.column-choice input{accent-color:var(--primary-color);width:16px;height:16px;margin:0}
+.table-wrap{width:100%;overflow-x:auto}table{table-layout:auto;font-size:12px}
+th,td{padding:7px 6px}.name{max-width:230px}.ip-address{font-variant-numeric:tabular-nums}
+.state-pill{padding:3px 6px;font-size:11px}.approve{padding:4px 6px;font-size:11px}
+.zalo-hint{padding:6px 8px;font-size:11px;margin:6px 0}
+.gauges{gap:8px;margin:10px 0}.gauge-card{padding:9px 6px;border-radius:12px;gap:5px}
+.gauge-dial{width:min(95px,100%)}.gauge-title{font-size:11px}.gauge-state{font-size:10px}
+.hw-extras{grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:6px;margin:8px 0}
+.hw-tile{padding:9px;border-radius:11px}.hw-tile .key{margin:4px 0 3px}.hw-tile .value{font-size:13px}
+.sensor-list{gap:5px}.sensor-row{padding:7px 9px}.section-title{margin:10px 0 7px;font-size:13px}
+.netwatch-row{padding:9px;border-radius:9px;margin:5px 0}.footer{margin-top:8px}
+@container (max-width:680px){
+  .header{gap:4px}.header .hint{width:100%;padding-left:45px;font-size:10px}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .stat{padding:6px 7px}.stat strong{font-size:19px}
+  .stat .icon-chip{width:20px;height:20px}.stat .icon-chip .mi-icon{width:12px;height:12px}
+  .tabs{gap:4px}.tabs button{flex:1 1 auto;justify-content:center;padding:7px 6px;font-size:11px}
+  .tabs button .mi-icon{width:14px;height:14px}
+  .toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px}
+  .toolbar>input{grid-column:1/-1;min-width:0;width:100%;box-sizing:border-box}
+  .toolbar>select:first-child{min-width:0;width:100%}
+  .toolbar>.sort-select{max-width:none;width:100%}
+  .column-panel{justify-self:end}
+  .device-table-wrap{overflow-x:visible}
+  .devices-table,.devices-table tbody{display:block;width:100%}.devices-table thead{display:none}
+  .devices-table tbody{display:grid;gap:5px}
+  .devices-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 7px;align-items:center;border:1px solid var(--divider-color);border-radius:10px;padding:7px 9px;min-width:0}
+  .devices-table tbody td{display:flex;align-items:center;min-width:0;white-space:normal;padding:1px 0;border:0;font-size:11px;overflow-wrap:anywhere}
+  .devices-table tbody td[data-col=device]{grid-column:1/3;grid-row:1;font-size:12px}
+  .devices-table tbody td[data-col=state]{grid-column:3;grid-row:1;justify-self:end}
+  .devices-table tbody td[data-col=ip]{font-size:11px;min-width:0;grid-column:1/2}
+  .devices-table tbody td[data-col=link]{grid-column:2/3}
+  .devices-table tbody td[data-col=approved]{justify-self:end}
+  .devices-table tbody td[data-col=port],.devices-table tbody td[data-col=dhcp]{color:var(--secondary-text-color)}
+  .devices-table tbody td[data-col=port]::before{content:'Port: ';margin-right:3px}
+  .name{max-width:none}.device-label span{overflow-wrap:anywhere;word-break:break-word}
+  .device-label{gap:5px}.device-label .mi-icon{width:14px;height:14px}
+  .connection-pill{gap:4px}.connection-pill .mi-icon{width:13px;height:13px}
+  .gauges{gap:5px}.gauge-card{padding:7px 3px;border-radius:9px}
+  .gauge-dial{width:min(70px,100%)}.gauge-value{font-size:19px}
+  .gauge-title{font-size:10px}.gauge-state{font-size:9px;letter-spacing:0}
+  .hw-extras{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hw-model{font-size:16px}.hw-badge{padding:5px 7px;font-size:9px}
+}
+@container (max-width:350px){
+ .tabs button{font-size:10px;padding:6px 4px}.tabs .tab-icon{display:none}
+ .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .stat-caption .icon-chip{display:none}.stat strong{font-size:18px}
+ .toolbar{grid-template-columns:minmax(0,1fr) auto}.toolbar>.sort-select{grid-column:1}
+ .gauges .gauge-state{display:none}
+}
+
 `;
 function elt(tag, parent, text, className) {
   const node = document.createElement(tag);
@@ -159,11 +241,16 @@ class NetwatcherMikMiCard extends HTMLElement {
   static getStubConfig() { return {type: `custom:${CARD_TAG}`, title: 'Netwatcher MikMi', page_size: 25, show_ap: true, show_dhcp: true, show_logs: true, show_hardware: true, show_netwatch: true, show_traffic: true, show_sensors: true, show_brand: true, icon_style: 'cyber', default_view:'hardware'}; }
   static getConfigElement() { return document.createElement('netwatcher-mikmi-card-editor'); }
   getCardSize() { return 5; }
+  // Sections layout: allow width resizing, keep height content-driven.
+  getGridOptions() { return {columns: 12, min_columns: 3}; }
   setConfig(config) {
+    if (!config || typeof config !== 'object') throw new Error('Netwatcher MikMi requires a card configuration');
     this._config = {...NetwatcherMikMiCard.getStubConfig(), ...config};
     // Keep the selected sort across frontend re-renders; default stays recent-first.
     if (!['name','ip'].includes(this._sortBy)) this._sortBy = 'recent';
     if (!['asc','desc'].includes(this._sortDir)) this._sortDir = 'desc';
+    this._columnsLoaded = false;
+    this._visibleColumns = null;
     if (!this.shadowRoot) this.attachShadow({mode: 'open'});
     this._renderBase();
     if (this._hass) this._refresh(true);
@@ -191,7 +278,7 @@ class NetwatcherMikMiCard extends HTMLElement {
     } else { miBadge(brand,'shield','cyan'); }
     const brandTitles=elt('div',brand,null,'brand-title-group');
     elt('div',brandTitles,this._config.title || 'Netwatcher MikMi','title');
-    elt('div',brandTitles,'NETWORK INTELLIGENCE · MIKROTIK + XIAOMI','brand-subtitle');
+    elt('div',brandTitles,'NETWORK INTELLIGENCE · MIKROTIK · ROUTEROS','brand-subtitle');
     this._health = elt('div', header, 'Connecting...', 'hint');
     this._stats = elt('div', this._card, null, 'stats');
     const views = ['hardware','devices','netwatch','logs'];
@@ -238,10 +325,10 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._deviceView.hidden=this._view!=='devices';
     const toolbar = elt('div', this._deviceView, null, 'toolbar');
     this._filter = elt('select', toolbar);
-    [['all','All'],['online','Online'],['offline','Offline'],['unknown','Unknown'],['dynamic','DHCP dynamic'],['unapproved','Unapproved']].forEach(([value,label]) => {
+    [['all','All'],['online','Online'],['offline','Offline'],['dynamic','DHCP dynamic'],['unapproved','Unapproved']].forEach(([value,label]) => {
       const opt = elt('option', this._filter, label); opt.value = value;
     });
-    this._filter.value = this._config.default_filter || 'all';
+    this._filter.value = ['all','online','offline','dynamic','unapproved'].includes(this._config.default_filter) ? this._config.default_filter : 'all';
     this._filter.addEventListener('change', () => {this._offset = 0; this._refresh(true);});
     if (this._config.show_search !== false) {
       this._search = elt('input', toolbar);
@@ -252,7 +339,48 @@ class NetwatcherMikMiCard extends HTMLElement {
         this._timer = setTimeout(() => {this._offset=0;this._refresh(true);},350);
       });
     }
-    const testZalo = elt('button', toolbar, 'Test Zalo Bot');
+    // Mobile-friendly sort control; desktop users can still click column headers.
+    this._sortSelect = elt('select', toolbar, null, 'sort-select');
+    this._sortSelect.setAttribute('aria-label', 'Sắp xếp thiết bị');
+    [['recent:desc','Gần đây'],['name:asc','Tên A → Z'],['name:desc','Tên Z → A'],
+     ['ip:asc','IP tăng dần'],['ip:desc','IP giảm dần']].forEach(([value,label]) => {
+      const option=elt('option',this._sortSelect,label);option.value=value;
+    });
+    this._sortSelect.value = `${this._sortBy}:${this._sortDir}`;
+    this._sortSelect.addEventListener('change', () => {
+      [this._sortBy,this._sortDir] = this._sortSelect.value.split(':');
+      this._offset=0;this._refresh(true);
+    });
+
+    // Preferences are stored per HA account and integration entry in HA Store.
+    this._columnsPanel = elt('details',toolbar,null,'column-panel');
+    const summary=elt('summary',this._columnsPanel,'Cột hiển thị');
+    summary.setAttribute('aria-label','Chọn cột thiết bị cần hiển thị');
+    this._columnChoices=elt('div',this._columnsPanel,null,'column-choices');
+    for(const [key,label] of DEVICE_COLUMNS){
+      const holder=elt('label',this._columnChoices,null,'column-choice');
+      const check=elt('input',holder);check.type='checkbox';check.value=key;
+      elt('span',holder,label);
+      check.addEventListener('change',async()=>{
+        const previous=[...(this._visibleColumns||DEVICE_COLUMNS.map(x=>x[0]))];
+        const proposed=DEVICE_COLUMNS.filter(([id])=>
+          id===key ? check.checked : previous.includes(id)).map(x=>x[0]);
+        if(!proposed.length){check.checked=true;return;}
+        this._visibleColumns=proposed;
+        this._syncColumnControls();
+        if(this._cachedDevices)this._show(this._cachedDevices);
+        try{
+          if(!this._entryId)throw new Error('No config entry');
+          await this._hass.callWS({type:'netwatcher_mikmi/columns',
+            entry_id:this._entryId,columns:proposed});
+        }catch(_error){
+          this._visibleColumns=previous;this._syncColumnControls();
+          if(this._cachedDevices)this._show(this._cachedDevices);
+          this._message.textContent='Không lưu được lựa chọn cột. Kiểm tra quyền quản trị/nhật ký HA.';
+        }
+      });
+    }
+    const testZalo = elt('button', toolbar, 'Test Zalo');
     miIcon(testZalo,'alert','mi-icon button-icon');
     testZalo.title = 'Send a test message via personal-account Zalo Bot to configured recipients (unofficial API).';
     testZalo.addEventListener('click', async () => {
@@ -261,16 +389,23 @@ class NetwatcherMikMiCard extends HTMLElement {
       try {
         if (!this._entryId) await this._refresh(true);
         const result = await this._hass.callWS({type:'netwatcher_mikmi/test_zalo',entry_id:this._entryId});
-        this._message.textContent = `Zalo Bot test: ${result.submitted || 0} accepted by service, ${result.failed || 0} failed, ${result.rate_limited || 0} rate-limited.`;
-      } catch (_error) { this._message.textContent = 'Zalo test failed. Check configuration and safe HA logs.'; }
+        this._testMessage.textContent = result.disabled ? 'Zalo Bot đang tắt trong Options.' :
+          result.cooldown ? 'Vui lòng đợi 60 giây trước khi gửi tin thử tiếp theo.' :
+          result.service_missing ? 'Chưa tìm thấy action zalo_bot.send_message.' :
+          result.missing_configuration ? 'Còn thiếu tài khoản gửi hoặc ID người nhận Zalo.' :
+          result.invalid_recipients ? 'Danh sách ID người nhận Zalo không hợp lệ.' :
+          `Tin thử Zalo: ${result.submitted || 0} lượt được service chấp nhận, ${result.failed || 0} lỗi, ${result.rate_limited || 0} bị giới hạn. (Chưa xác nhận đã đến máy nhận.)`;
+      } catch (_error) { this._testMessage.textContent = 'Không gửi được tin thử. Kiểm tra Options và Home Assistant logs.'; }
       finally { testZalo.disabled = false; }
     });
-    const refresh = elt('button', toolbar, 'Refresh');
+    const refresh = elt('button', toolbar, 'Làm mới');
     miIcon(refresh,'refresh','mi-icon button-icon');
     refresh.addEventListener('click', () => this._refresh(true));
     this._message = elt('div', this._deviceView, '', 'small');
-    const wrap = elt('div', this._deviceView, null, 'table-wrap');
-    this._table = elt('table', wrap);
+    this._zaloHint = elt('div',this._deviceView,'','zalo-hint');
+    this._testMessage = elt('div',this._deviceView,'','small');
+    const wrap = elt('div', this._deviceView, null, 'table-wrap device-table-wrap');
+    this._table = elt('table', wrap, null, 'devices-table');
     const footer = elt('div', this._deviceView, null, 'footer');
     this._prev = elt('button', footer, 'Previous');
     this._count = elt('span', footer, '', 'small');
@@ -476,94 +611,135 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._logNext.disabled=this._offset+50>=data.count;
     this._logCount.textContent=`${data.count?this._offset+1:0}-${Math.min(this._offset+(data.logs||[]).length,data.count)} / ${data.count} log`;
   }
+  _syncColumnControls(){
+    const visible=this._visibleColumns||DEVICE_COLUMNS.map(x=>x[0]);
+    for(const input of this._columnChoices?.querySelectorAll('input')||[])
+      input.checked=visible.includes(input.value);
+  }
   _show(data) {
+    this._cachedDevices=data;
+    if(!this._columnsLoaded){
+      const allowed=DEVICE_COLUMNS.map(x=>x[0]);
+      const saved=Array.isArray(data.column_preferences)?
+        data.column_preferences.filter(id=>allowed.includes(id)):[];
+      this._visibleColumns=saved.length?saved:allowed.filter(id=>
+        (id!=='port'||this._config.show_ap!==false) &&
+        (id!=='dhcp'||this._config.show_dhcp!==false));
+      this._columnsLoaded=true;
+      this._syncColumnControls();
+    }
+    const visible=this._visibleColumns||DEVICE_COLUMNS.map(x=>x[0]);
     this._message.className='small';
-    this._message.textContent = data.baseline_complete ? '' : 'Waiting for initial MikroTik snapshot; alerts will be baselined.';
+    this._message.textContent = data.baseline_complete ? '' : 'Đang chờ dữ liệu MikroTik lần đầu. Chưa phát cảnh báo thiết bị.';
     const sources = data.source_health || {};
-    const xiaomi = sources.xiaomi || {};
-    const xiaomiState = xiaomi.error==='disabled' ? 'Chưa cấu hình' : xiaomi.ok ? 'OK'
-      : `Unavailable (${xiaomi.error||'chưa xác định'})`;
-    this._health.textContent = `MikroTik: ${sources.mikrotik?.ok ? 'OK':'Unavailable'} | Xiaomi: ${xiaomiState}`;
+    this._health.textContent = sources.mikrotik?.ok ? '● MikroTik: OK' :
+      `● MikroTik: Mất dữ liệu (${sources.mikrotik?.error||'chưa cập nhật'})`;
+    const zalo = data.zalo || {};
+    const reasons=[];
+    if (!zalo.enabled) reasons.push('Zalo Bot đang tắt');
+    else {
+      if(!zalo.account_configured || !zalo.recipient_count || zalo.recipients_valid===false)
+        reasons.push('Chưa cấu hình tài khoản/ID người nhận hợp lệ');
+      if(!zalo.service_available) reasons.push('Không có action zalo_bot.send_message');
+      if(!zalo.offline_alerts || !zalo.online_alerts)
+        reasons.push(`Cảnh báo Offline: ${zalo.offline_alerts?'BẬT':'TẮT'}, Online: ${zalo.online_alerts?'BẬT':'TẮT'}`);
+    }
+    if(!sources.mikrotik?.ok)
+      reasons.push('Nguồn RouterOS mất kết nối: không gửi sự kiện Online/Offline giả');
+    const delivery=zalo.last_delivery;
+    if(delivery)
+      reasons.push(`Zalo gần nhất (${delivery.type}): ${delivery.submitted||0} được service chấp nhận, ${delivery.failed||0} lỗi`);
+    this._zaloHint.hidden=!reasons.length;
+    this._zaloHint.className=`zalo-hint ${reasons.length?'warning':''}`;
+    this._zaloHint.textContent=`Quét ${data.poll_interval||30}s / xác nhận mất ${data.offline_after||120}s. ${reasons.join(' · ')}`;
     this._stats.replaceChildren();
-    [['total','Total','devices','cyan'],['online','Online','online','green'],['offline','Offline','offline','red'],
-      ['unknown','Unknown','unknown','muted'],['dynamic','DHCP Dynamic','dynamic','amber'],
-      ['unapproved','Unapproved','unapproved','purple']].forEach(([key,label,glyph,tone]) => {
+    [['total','Tổng','devices','cyan'],['online','Online','online','green'],
+      ['offline','Offline','offline','red'],['dynamic','DHCP động','dynamic','amber'],
+      ['unapproved','Chưa duyệt','unapproved','purple']].forEach(([key,label,glyph,tone]) => {
       const box = elt('div',this._stats,null,`stat stat-${key}`);
       const info=elt('div',box,null,'stat-caption');
       miBadge(info,glyph,tone);elt('span',info,label);
-      elt('strong',box,data.statistics[key]||0);
+      elt('strong',box,data.statistics?.[key]||0);
     });
     this._table.replaceChildren();
-    const headers = ['Device','IP','State','Link',...(this._config.show_ap===false?[]:['AP / port']),...(this._config.show_dhcp===false?[]:['DHCP']),'Approved (local)'];
     const head=elt('thead',this._table), tr=elt('tr',head);
-    headers.forEach((h,index)=>{
-      const th=elt('th',tr);
-      if (index>1) { th.textContent=h; return; }
-      const field=index===0?'name':'ip';
-      const active=this._sortBy===field;
+    for(const [field,label] of DEVICE_COLUMNS.filter(([id])=>visible.includes(id))){
+      const th=elt('th',tr);th.dataset.col=field;
+      if(field!=='device'&&field!=='ip'){th.textContent=label;continue;}
+      const sortKey=field==='device'?'name':'ip';
+      const active=this._sortBy===sortKey;
       th.setAttribute('aria-sort',active?(this._sortDir==='asc'?'ascending':'descending'):'none');
-      const btn=elt('button',th,null,'sort-button');
-      btn.type='button';
+      const btn=elt('button',th,null,'sort-button');btn.type='button';
       const nextDir=active&&this._sortDir==='asc'?'desc':'asc';
-      btn.setAttribute('aria-label',`Sort ${h} ${nextDir==='asc'?'ascending':'descending'}`);
-      btn.title=`Sort ${h} ${nextDir==='asc'?'A to Z / low to high':'Z to A / high to low'}`;
-      elt('span',btn,h);
+      btn.setAttribute('aria-label',`Sắp xếp ${label} ${nextDir==='asc'?'tăng':'giảm'} dần`);
+      elt('span',btn,label);
       const arrow=elt('span',btn,active?(this._sortDir==='asc'?'↑':'↓'):'↕','sort-arrow');
       arrow.setAttribute('aria-hidden','true');
       btn.addEventListener('click',()=>{
-        this._sortDir=this._sortBy===field&&this._sortDir==='asc'?'desc':'asc';
-        this._sortBy=field;
-        this._offset=0;
-        this._refresh(true);
-      });
-    });
-    const body=elt('tbody',this._table);
-    for (const d of data.devices) {
-      const row=elt('tr',body);
-      const name=elt('td',row,null,'name');name.title=d.mac;
-      const devLine=elt('div',name,null,'device-label');
-      miIcon(devLine,d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'devices');
-      elt('span',devLine,d.name||d.mac);
-      elt('td',row,d.ip||'-');
-      const stateTd=elt('td',row);
-      const statePill=elt('span',stateTd,null,`pill state-pill ${d.online||'unknown'}`);
-      miIcon(statePill,d.online==='online'?'online':d.online==='offline'?'offline':'unknown');
-      elt('span',statePill,d.online||'unknown');
-      const connTd=elt('td',row);const conn=elt('div',connTd,null,'connection-pill');
-      miIcon(conn,d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'unknown');
-      elt('span',conn,d.connection==='wifi' ? `Wi-Fi ${d.wifi_band||''}` :
-        d.connection==='lan' ? 'LAN (cáp)' : 'Chưa xác định');
-      conn.title=d.connection==='wifi' ? 'Có bằng chứng kết nối Wi-Fi từ Xiaomi' :
-        d.connection==='lan' ? `Port LAN trực tiếp: ${d.port||'—'}` :
-        'Chưa đủ bằng chứng LAN/Wi-Fi. Kiểm tra Xiaomi và cấu hình LAN endpoint ports.';
-      if (this._config.show_ap!==false) elt('td',row,d.ap_name||d.port||'-');
-      if (this._config.show_dhcp!==false) {
-        const dhcpTd=elt('td',row);
-        const dhcpPill=elt('span',dhcpTd,null,d.dhcp_dynamic===true?'pill dynamic':'pill');
-        if(d.dhcp_dynamic===true)miIcon(dhcpPill,'dynamic');
-        elt('span',dhcpPill,d.dhcp_dynamic===true?'D · Dynamic':d.dhcp_dynamic===false?'Static':'Unmanaged');
-      }
-      const td=elt('td',row);
-      const approve=elt('button',td,d.approved?'Approved':'Approve','approve');
-      approve.title = d.approved ? 'Unapprove device locally' : 'Mark device as approved locally (does not change MikroTik)';
-      approve.addEventListener('click', async () => {
-        // Approval is only a reversible local inventory flag; no confirmation dialog.
-        approve.disabled=true;
-        try {
-          await this._hass.callWS({type:'netwatcher_mikmi/approve',entry_id:this._entryId,mac:d.mac,approved:!d.approved});
-          d.approved=!d.approved;
-          approve.textContent=d.approved?'Approved':'Approve';
-          approve.title=d.approved?'Unapprove device locally':'Mark device as approved locally (does not change MikroTik)';
-          await this._refresh(true);
-        } catch(_error) { this._message.textContent='Cannot change local approval.'; }
-        finally {approve.disabled=false;}
+        this._sortDir=this._sortBy===sortKey&&this._sortDir==='asc'?'desc':'asc';
+        this._sortBy=sortKey;
+        this._sortSelect.value=`${this._sortBy}:${this._sortDir}`;
+        this._offset=0;this._refresh(true);
       });
     }
+    const body=elt('tbody',this._table);
+    for (const d of data.devices||[]) {
+      const row=elt('tr',body);
+      for(const [field,label] of DEVICE_COLUMNS.filter(([id])=>visible.includes(id))){
+        const cell=elt('td',row);cell.dataset.col=field;cell.dataset.label=label;
+        if(field==='device'){
+          cell.classList.add('name');cell.title=d.mac;
+          const link=d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'none';
+          const devLine=elt('div',cell,null,`device-label link-${link}`);
+          miIcon(devLine,link==='none'?'devices':link);
+          elt('span',devLine,d.name||d.mac);
+        }else if(field==='ip'){
+          elt('span',cell,d.ip||'—','ip-address');
+        }else if(field==='state'){
+          const state=d.online==='online'?'online':'offline';
+          const pill=elt('span',cell,null,`pill state-pill ${state}`);
+          miIcon(pill,state);elt('span',pill,state);
+        }else if(field==='link'){
+          const link=d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'none';
+          const conn=elt('div',cell,null,`connection-pill link-${link}`);
+          miIcon(conn,link==='none'?'devices':link);
+          elt('span',conn,link==='wifi'?'Wi-Fi':link==='lan'?'LAN':'—');
+          conn.title=link==='wifi'?'Được xác thực qua bảng đăng ký Wi-Fi MikroTik':
+            link==='lan'?`Port LAN được xác thực: ${d.port||'—'}`:
+            'RouterOS không có bằng chứng xác định LAN/Wi-Fi; không tự suy đoán từ ARP/DHCP.';
+        }else if(field==='port'){
+          elt('span',cell,d.ap_name||d.port||'—');
+        }else if(field==='dhcp'){
+          const tag=elt('span',cell,null,d.dhcp_dynamic===true?'pill dynamic':'pill');
+          if(d.dhcp_dynamic===true)miIcon(tag,'dynamic');
+          elt('span',tag,d.dhcp_dynamic===true?'Dynamic':d.dhcp_dynamic===false?'Static':'—');
+        }else if(field==='approved'){
+          const approve=elt('button',cell,d.approved?'Approved':'Approve','approve');
+          approve.title=d.approved?'Bỏ đánh dấu thiết bị':'Đánh dấu thiết bị đã biết (không đổi quyền mạng)';
+          approve.addEventListener('click',async()=>{
+            approve.disabled=true;
+            try{
+              await this._hass.callWS({type:'netwatcher_mikmi/approve',entry_id:this._entryId,
+                mac:d.mac,approved:!d.approved});
+              d.approved=!d.approved;
+              approve.textContent=d.approved?'Approved':'Approve';
+              this._refresh(true);
+            }catch(_error){this._message.textContent='Không lưu được Approved.';}
+            finally{approve.disabled=false;}
+          });
+        }
+      }
+    }
+    if(!data.devices?.length){
+      const tr=elt('tr',body),td=elt('td',tr,'Không có thiết bị phù hợp.');
+      td.colSpan=visible.length;
+    }
     this._prev.disabled=this._offset<=0;
-    this._next.disabled=(this._offset+this._pageSize())>=data.count;
+    this._next.disabled=this._offset+this._pageSize()>=data.count;
     const start=data.count?this._offset+1:0;
-    this._count.textContent=`${start}-${Math.min(this._offset+data.devices.length,data.count)} of ${data.count}`;
+    this._count.textContent=`${start}–${Math.min(this._offset+(data.devices||[]).length,data.count)} / ${data.count}`;
   }
+
 }
 
 class NetwatcherMikMiCardEditor extends HTMLElement {
@@ -609,4 +785,4 @@ input,select{padding:8px;border:1px solid var(--divider-color);border-radius:7px
 if(!customElements.get(CARD_TAG))customElements.define(CARD_TAG,NetwatcherMikMiCard);
 if(!customElements.get('netwatcher-mikmi-card-editor'))customElements.define('netwatcher-mikmi-card-editor',NetwatcherMikMiCardEditor);
 window.customCards=window.customCards||[];
-if(!window.customCards.some(c=>c.type===CARD_TAG))window.customCards.push({type:CARD_TAG,name:'Netwatcher MikMi',icon:'mdi:shield-home',description:'MikroTik hardware gauges, DHCP/Wi-Fi inventory, Netwatch, WAN log and Zalo Bot alerts',preview:false,configurable:true});
+if(!window.customCards.some(c=>c.type===CARD_TAG))window.customCards.push({type:CARD_TAG,name:'Netwatcher MikMi',icon:'mdi:shield-home',description:'MikroTik RouterOS monitoring, inventory, Netwatch, WAN log and Zalo Bot alerts',preview:false,configurable:true});
