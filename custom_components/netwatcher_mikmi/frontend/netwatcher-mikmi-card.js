@@ -1,4 +1,4 @@
-/* Netwatcher MikMi Lovelace Card v0.4.1-beta.5 (no dependencies, no credentials).
+/* Netwatcher MikMi Lovelace Card v0.4.1-beta.6 (no dependencies, no credentials).
  * All device-provided strings are inserted with textContent, never innerHTML.
  * Backend WebSocket checks administrator privileges on every request.
  */
@@ -202,6 +202,31 @@ th,td{padding:7px 6px}.name{max-width:230px}.ip-address{font-variant-numeric:tab
  .toolbar{grid-template-columns:minmax(0,1fr) auto}.toolbar>.sort-select{grid-column:1}
  .gauges .gauge-state{display:none}
 }
+/* beta.6: values sit precisely at the geometric center of each circular dial.
+   Keep the unit independent of the number's centering, with a 2-3px gap. */
+.gauge-card{--nwm-gauge-number-size:23px;--nwm-gauge-unit-offset:15px}
+.gauge-hole{position:relative;display:block}
+.gauge-value{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:var(--nwm-gauge-number-size);line-height:1;margin:0;white-space:nowrap;letter-spacing:-.55px}
+.gauge-unit{position:absolute;left:50%;top:calc(50% + var(--nwm-gauge-unit-offset));transform:translateX(-50%);font-size:10px;line-height:1;white-space:nowrap;margin:0}
+/* Icon | (label over reading) makes every extra metric denser on phones. */
+.hw-tile{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;min-height:62px;padding:10px 12px}
+.hw-tile .icon-chip{width:36px;height:36px}
+.hw-tile-copy{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0}
+.hw-tile .key{margin:0;font-size:11px;line-height:1.2}
+.hw-tile .value{margin:0;font-size:15px;line-height:1.23;overflow-wrap:anywhere;min-width:0;font-variant-numeric:tabular-nums}
+.hw-extras{grid-template-columns:repeat(auto-fit,minmax(185px,1fr))}
+.netwatch-note{padding:9px 11px;border-radius:9px;margin:6px 0 10px;border:1px solid var(--divider-color);background:var(--secondary-background-color);line-height:1.55;font-size:12px;color:var(--secondary-text-color)}
+.netwatch-note.warn{border-color:rgba(245,158,11,.4)}
+@container (max-width:680px){
+  .gauge-card{--nwm-gauge-number-size:20px;--nwm-gauge-unit-offset:13px}
+  .hw-extras{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .hw-tile{grid-template-columns:30px minmax(0,1fr);gap:8px;padding:9px;min-height:56px}
+  .hw-tile .icon-chip{width:30px;height:30px}
+  .hw-tile .icon-chip .mi-icon{width:18px;height:18px}
+  .hw-tile .key{font-size:10px}
+  .hw-tile .value{font-size:13px}
+}
+@container (max-width:330px){.hw-extras{grid-template-columns:1fr}}
 
 `;
 function elt(tag, parent, text, className) {
@@ -522,7 +547,9 @@ class NetwatcherMikMiCard extends HTMLElement {
     for(const [symbol,key,val,tone] of values){
       const tile=elt('div',extras,null,'hw-tile');
       miBadge(tile,symbol,tone);
-      elt('div',tile,key,'key');elt('div',tile,val,'value');
+      const copy=elt('div',tile,null,'hw-tile-copy');
+      elt('div',copy,key,'key');
+      elt('div',copy,val,'value');
     }
     if (this._config.show_sensors!==false && available && Object.keys(data.sensors||{}).length){
       const sensorTitle=elt('div',this._hwContent,null,'section-title');
@@ -569,21 +596,45 @@ class NetwatcherMikMiCard extends HTMLElement {
   _showNetwatch(data){
     this._nwContent.replaceChildren();
     this._nwMessage.className='small';
-    this._nwMessage.textContent=!data.enabled?'Netwatch đang tắt trong Options. Không tự tạo probe.':
+    const probes=Array.isArray(data.probes)?data.probes:[];
+    // RouterOS API may encode boolean flags as true, 'true', 'yes' or '1'.
+    const isDisabled=(probe)=>[true,1,'true','yes','1'].includes(
+      typeof probe.disabled==='string'?probe.disabled.trim().toLowerCase():probe.disabled
+    );
+    const disabled=probes.filter(isDisabled).length;
+    const active=probes.length-disabled;
+    const up=probes.filter(p=>!isDisabled(p)&&String(p.status).toLowerCase()==='up').length;
+    const down=probes.filter(p=>!isDisabled(p)&&String(p.status).toLowerCase()==='down').length;
+    this._nwMessage.textContent=!data.enabled?'Đọc Netwatch đang tắt trong Options của Netwatcher.':
       !data.available?'Chưa đọc được dữ liệu Netwatch: kiểm tra RouterOS và quyền read.':
-      `Đang đọc ${(data.probes||[]).length} phép thử RouterOS Netwatch có sẵn.`;
-    for(const p of data.probes||[]){
+      `${probes.length} phép thử RouterOS · ${active} đang bật · ${disabled} đã tắt · ${up} UP · ${down} DOWN`;
+    const note=elt('div',this._nwContent,null,'netwatch-note');
+    if(!data.enabled){
+      note.textContent='Bật “Netwatch read enabled” trong Settings → Devices & Services → Netwatcher MikMi → Configure để xem các phép thử đã có.';
+    }else if(!data.available){
+      note.textContent='Netwatcher chỉ đọc kết quả từ MikroTik, không tự tạo/bật phép thử. Không có kết quả mới để hiển thị.';
+    }else if(probes.length>0&&active===0){
+      note.classList.add('warn');
+      note.textContent=`Cả ${disabled} phép thử đang bị tắt trên MikroTik. Vào WinBox/WebFig → Tools → Netwatch để bật mục cần theo dõi. Netwatcher chỉ đọc kết quả, không tự bật hay gửi cảnh báo Zalo riêng cho Netwatch.`;
+    }else{
+      note.textContent='Netwatch do MikroTik trực tiếp kiểm tra host bằng Ping/TCP/HTTP/DNS. Netwatcher chỉ đọc trạng thái UP/DOWN, không thay đổi cấu hình router hoặc tự gửi Zalo theo Netwatch.';
+    }
+    for(const p of probes){
       const row=elt('div',this._nwContent,null,'netwatch-row');
       const left=elt('div',row);
       const nameLine=elt('div',left,null,'model-line');
-      miBadge(nameLine,'netwatch',p.status==='up'?'green':p.status==='down'?'red':'muted');
+      const isOff=isDisabled(p);
+      const status=isOff?'disabled':String(p.status||'').toLowerCase();
+      miBadge(nameLine,'netwatch',status==='up'?'green':status==='down'?'red':'muted');
       const label=elt('div',nameLine,p.comment||p.name||p.host||'Netwatch','host');
       label.title=p.host||'';
       elt('div',left,`Đích: ${p.host||'—'} · RTT: ${p['rtt-avg']||'—'} · Loss: ${p['loss-percent']||'—'}`,'sub');
-      const state=p.disabled==='true'?'disabled':p.status||'unknown';
-      elt('span',row,state.toUpperCase(),`hw-badge ${state==='down'?'danger':state==='up'?'':'muted'}`);
+      const displayStatus=status==='disabled'?'ĐÃ TẮT':status==='up'?'UP':status==='down'?'DOWN':'CHƯA CÓ DỮ LIỆU';
+      elt('span',row,displayStatus,`hw-badge ${status==='down'?'danger':status==='up'?'':'muted'}`);
     }
-    if (!data.probes?.length)elt('div',this._nwContent,'Không có mục Netwatch hoặc chưa có dữ liệu.','small');
+    if(!probes.length&&data.enabled&&data.available){
+      elt('div',this._nwContent,'RouterOS chưa có phép thử Netwatch nào. Tạo trong Tools → Netwatch nếu muốn dùng tính năng này.','small');
+    }
   }
   _showLogs(data) {
     this._logMessage.className='small';
