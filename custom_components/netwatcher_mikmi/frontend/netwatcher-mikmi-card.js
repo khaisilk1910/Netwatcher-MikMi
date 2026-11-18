@@ -1,10 +1,10 @@
-/* Netwatcher MikMi Lovelace Card v0.4.1-beta.7 (no dependencies, no credentials).
+/* Netwatcher MikMi Lovelace Card v0.4.1-beta.8 (no dependencies, no credentials).
  * All device-provided strings are inserted with textContent, never innerHTML.
  * Backend WebSocket checks administrator privileges on every request.
  */
 const CARD_TAG = 'netwatcher-mikmi-card';
 const DEVICE_COLUMNS = Object.freeze([
-  ['device','Device'], ['ip','IP'], ['state','State'], ['link','Link'],
+  ['device','Device'], ['ip','IP'], ['state','State'],
   ['port','AP / port'], ['dhcp','DHCP'], ['approved','Approved'],
 ]);
 
@@ -75,7 +75,7 @@ border-radius:7px;padding:5px 8px;cursor:pointer;white-space:nowrap}
 /* Netwatcher MikMi v0.4.1 icon system. SVG assets are local and DOM-only. */
 :host{--nwm-cyan:#22d3ee;--nwm-violet:#a78bfa;--nwm-good:#10b981;--nwm-bad:#fb7185}
 .header{min-height:78px;background:linear-gradient(118deg,#081b33 0%,#112a49 49%,#263067 100%);padding:18px 23px;margin:-16px -16px 15px;border-bottom:1px solid rgba(123,192,255,.25)}
-.brand-head,.model-line,.device-label,.connection-pill,.stat-caption,.gauge-top,.log-level{display:flex;align-items:center;gap:9px;min-width:0}
+.brand-head,.model-line,.device-label,.stat-caption,.gauge-top,.log-level{display:flex;align-items:center;gap:9px;min-width:0}
 .brand-head{gap:14px;position:relative;z-index:1}.brand-avatar{width:53px;height:53px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(34,211,238,.20))}
 .brand-title-group{min-width:0}.brand-title-group .title{font-size:20px;line-height:1.25;color:#edf8ff;font-weight:850;letter-spacing:.1px}
 .brand-subtitle{font-size:9px;font-weight:700;letter-spacing:1.25px;color:#9bb8dd;margin-top:5px}
@@ -104,9 +104,8 @@ border-radius:7px;padding:5px 8px;cursor:pointer;white-space:nowrap}
 .stat strong{font-size:26px;margin:8px 0 0;font-variant-numeric:tabular-nums}
 .stat-online strong{color:#10b981}.stat-offline strong{color:#fb7185}.stat-dynamic strong{color:#f59e0b}.stat-unapproved strong{color:#a78bfa}
 .device-label .mi-icon{width:17px;height:17px;color:#0ea5e9}.device-label span{overflow:hidden;text-overflow:ellipsis}
-.connection-pill .mi-icon{width:16px;height:16px;color:#38bdf8}
-.connection-pill.link-wifi .mi-icon,.device-label.link-wifi .mi-icon{color:#10b981}
-.connection-pill.link-lan .mi-icon,.device-label.link-lan .mi-icon{color:#0ea5e9}
+.device-label.link-wifi .mi-icon{color:#10b981}
+.device-label.link-lan .mi-icon{color:#0ea5e9}
 .zalo-hint{margin:7px 0 12px;padding:9px 12px;border-left:3px solid var(--divider-color);background:var(--secondary-background-color);border-radius:7px;line-height:1.6;font-size:12px;color:var(--secondary-text-color)}
 .zalo-hint.warning{border-left-color:var(--nwm-amber)}
 .state-pill,.log-level{display:inline-flex;align-items:center;gap:5px;font-weight:750;padding:5px 9px}
@@ -172,13 +171,10 @@ th,td{padding:7px 6px}.name{max-width:230px}.ip-address{font-variant-numeric:tab
   .devices-table tbody td[data-col=device]{grid-column:1/3;grid-row:1;font-size:12px}
   .devices-table tbody td[data-col=state]{grid-column:3;grid-row:1;justify-self:end}
   .devices-table tbody td[data-col=ip]{font-size:11px;min-width:0;grid-column:1/2}
-  .devices-table tbody td[data-col=link]{grid-column:2/3}
   .devices-table tbody td[data-col=approved]{justify-self:end}
   .devices-table tbody td[data-col=port],.devices-table tbody td[data-col=dhcp]{color:var(--secondary-text-color)}
-  .devices-table tbody td[data-col=port]::before{content:'Port: ';margin-right:3px}
   .name{max-width:none}.device-label span{overflow-wrap:anywhere;word-break:break-word}
   .device-label{gap:5px}.device-label .mi-icon{width:14px;height:14px}
-  .connection-pill{gap:4px}.connection-pill .mi-icon{width:13px;height:13px}
   .gauges{gap:5px}.gauge-card{padding:7px 3px;border-radius:9px}
   .gauge-dial{width:min(70px,100%)}.gauge-value{font-size:19px}
   .gauge-title{font-size:10px}.gauge-state{font-size:9px;letter-spacing:0}
@@ -254,6 +250,58 @@ th,td{padding:7px 6px}.name{max-width:230px}.ip-address{font-variant-numeric:tab
  .hw-tile .value{font-size:14px}
  .hw-title .hw-badge{font-size:8px;padding:4px 5px}
  .hw-title .hw-model{font-size:14px}
+}
+
+
+/* beta.8: one-line, phone-first device controls and compact metadata. */
+.toolbar>.search-input{flex:1 1 145px;min-width:95px}
+/* Checkbox sizing must not inherit the search field's flex:1/min-width. */
+.toolbar .column-choice{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:center;justify-items:start;gap:10px;padding:7px 9px;white-space:nowrap;font-size:13px;line-height:1.3}
+.toolbar .column-choice input[type=checkbox]{display:block;flex:0 0 18px;min-width:18px;max-width:18px;width:18px;height:18px;margin:0;padding:0;box-sizing:border-box;accent-color:var(--primary-color);border-radius:3px}
+.toolbar .column-choice span{display:block;text-align:left;justify-self:start;white-space:nowrap}
+.column-choices{min-width:178px;width:max-content;gap:2px;padding:6px}
+.device-label .mi-icon{flex:0 0 auto}
+.devices-table tbody td[data-col=port]{max-width:180px}
+.devices-table tbody td[data-col=port]>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;max-width:100%}
+@container (max-width:680px){
+  .device-toolbar{display:flex;flex-wrap:nowrap;align-items:stretch;gap:4px;min-width:0;width:100%;margin:6px 0 8px}
+  .toolbar>.filter-select{flex:0 0 58px;width:58px;min-width:0;padding:5px 3px;font-size:11px}
+  .toolbar>.search-input{flex:1 1 34px;min-width:30px;width:34px;max-width:none;padding:5px 5px;font-size:11px;box-sizing:border-box}
+  .toolbar>.search-input::placeholder{color:var(--secondary-text-color);font-size:11px}
+  .toolbar>.search-input:focus{min-width:30px;outline-color:var(--primary-color)}
+  .toolbar>.sort-select{grid-column:auto;flex:0 0 77px;min-width:0;max-width:77px;width:77px;padding:5px 2px;font-size:11px}
+  .toolbar>.column-panel{justify-self:auto;flex:0 0 31px;min-width:31px;width:31px;z-index:5}
+  .column-panel summary{display:flex;align-items:center;justify-content:center;width:31px;height:32px;min-height:32px;box-sizing:border-box;padding:0;font-size:0}
+  .column-panel summary::before{content:'☷';font-size:20px;line-height:1}
+  .column-panel summary .column-label{display:none}
+  .toolbar>.toolbar-action{flex:0 0 31px;min-width:31px;width:31px;height:32px;padding:0;justify-content:center;gap:0}
+  .toolbar>.toolbar-action .action-label{display:none}
+  .toolbar>.toolbar-action .mi-icon{width:16px;height:16px}
+  .column-choices{right:0;top:calc(100% + 6px);min-width:178px}
+  .devices-table tbody tr{grid-template-columns:minmax(0,1fr) repeat(var(--nwm-meta-trailing,3),max-content);column-gap:6px;row-gap:7px;align-items:center;padding:9px 9px}
+  .devices-table tbody td[data-col=device]{font-size:12px;min-width:0}
+  .devices-table tbody td[data-col=state]{justify-self:end}
+  .devices-table tbody td[data-col=ip]{font-size:11px;min-width:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .devices-table tbody td[data-col=port]{font-size:10px;min-width:0;max-width:62px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .devices-table tbody td[data-col=port]::before{content:'P:';font-size:10px;margin-right:3px;flex:none}
+  .devices-table tbody td[data-col=port]>span{max-width:48px;min-width:0}
+  .devices-table tbody td[data-col=dhcp],.devices-table tbody td[data-col=approved]{justify-self:end;white-space:nowrap}
+  .devices-table tbody td[data-col=dhcp] .pill{padding:3px 5px}
+  .devices-table tbody td[data-col=approved] .approve{padding:4px 5px}
+}
+@container (max-width:350px){
+  .device-toolbar{display:flex;grid-template-columns:none;gap:3px}
+  .toolbar>.filter-select{flex-basis:48px;width:48px}
+  .toolbar>.sort-select{grid-column:auto;flex-basis:68px;max-width:68px;width:68px}
+  .toolbar>.column-panel{flex-basis:29px;min-width:29px;width:29px}
+  .column-panel summary{width:29px}
+  .toolbar>.toolbar-action{flex-basis:29px;min-width:29px;width:29px}
+  .toolbar>.search-input{min-width:24px}
+  .devices-table tbody tr{column-gap:4px;padding:8px 6px}
+  .devices-table tbody td[data-col=port]{max-width:47px}
+  .devices-table tbody td[data-col=port]>span{max-width:29px}
+  .devices-table tbody td[data-col=dhcp] .pill{font-size:10px;padding:3px 4px}
+  .devices-table tbody td[data-col=approved] .approve{font-size:10px;padding:4px}
 }
 
 `;
@@ -369,16 +417,18 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._hwContent=elt('div',this._hardwareView);
     this._deviceView = elt('div', this._card);
     this._deviceView.hidden=this._view!=='devices';
-    const toolbar = elt('div', this._deviceView, null, 'toolbar');
-    this._filter = elt('select', toolbar);
+    const toolbar = elt('div', this._deviceView, null, 'toolbar device-toolbar');
+    this._filter = elt('select', toolbar, null, 'filter-select');
+    this._filter.setAttribute('aria-label','Lọc thiết bị theo trạng thái');
     [['all','All'],['online','Online'],['offline','Offline'],['dynamic','DHCP dynamic'],['unapproved','Unapproved']].forEach(([value,label]) => {
       const opt = elt('option', this._filter, label); opt.value = value;
     });
     this._filter.value = ['all','online','offline','dynamic','unapproved'].includes(this._config.default_filter) ? this._config.default_filter : 'all';
     this._filter.addEventListener('change', () => {this._offset = 0; this._refresh(true);});
     if (this._config.show_search !== false) {
-      this._search = elt('input', toolbar);
-      this._search.placeholder = 'Search MAC / IP / comment / AP';
+      this._search = elt('input', toolbar, null, 'search-input');
+      this._search.placeholder = 'Tìm MAC / IP';
+      this._search.title='Tìm theo tên, MAC, IP, comment hoặc AP';
       this._search.setAttribute('aria-label','Search devices');
       this._search.addEventListener('input', () => {
         if (this._timer) clearTimeout(this._timer);
@@ -400,8 +450,10 @@ class NetwatcherMikMiCard extends HTMLElement {
 
     // Preferences are stored per HA account and integration entry in HA Store.
     this._columnsPanel = elt('details',toolbar,null,'column-panel');
-    const summary=elt('summary',this._columnsPanel,'Cột hiển thị');
+    const summary=elt('summary',this._columnsPanel);
+    elt('span',summary,'Cột hiển thị','column-label');
     summary.setAttribute('aria-label','Chọn cột thiết bị cần hiển thị');
+    summary.title='Cột hiển thị';
     this._columnChoices=elt('div',this._columnsPanel,null,'column-choices');
     for(const [key,label] of DEVICE_COLUMNS){
       const holder=elt('label',this._columnChoices,null,'column-choice');
@@ -426,8 +478,10 @@ class NetwatcherMikMiCard extends HTMLElement {
         }
       });
     }
-    const testZalo = elt('button', toolbar, 'Test Zalo');
+    const testZalo = elt('button', toolbar, null, 'toolbar-action');
+    elt('span',testZalo,'Test Zalo','action-label');
     miIcon(testZalo,'alert','mi-icon button-icon');
+    testZalo.setAttribute('aria-label','Test Zalo');
     testZalo.title = 'Send a test message via personal-account Zalo Bot to configured recipients (unofficial API).';
     testZalo.addEventListener('click', async () => {
       if (!this._hass || !window.confirm('Send a test message to every configured Zalo recipient?')) return;
@@ -444,8 +498,11 @@ class NetwatcherMikMiCard extends HTMLElement {
       } catch (_error) { this._testMessage.textContent = 'Không gửi được tin thử. Kiểm tra Options và Home Assistant logs.'; }
       finally { testZalo.disabled = false; }
     });
-    const refresh = elt('button', toolbar, 'Làm mới');
+    const refresh = elt('button', toolbar, null, 'toolbar-action');
+    elt('span',refresh,'Làm mới','action-label');
     miIcon(refresh,'refresh','mi-icon button-icon');
+    refresh.setAttribute('aria-label','Làm mới danh sách thiết bị');
+    refresh.title='Làm mới danh sách thiết bị';
     refresh.addEventListener('click', () => this._refresh(true));
     this._message = elt('div', this._deviceView, '', 'small');
     this._zaloHint = elt('div',this._deviceView,'','zalo-hint');
@@ -633,6 +690,7 @@ class NetwatcherMikMiCard extends HTMLElement {
       this._syncColumnControls();
     }
     const visible=this._visibleColumns||DEVICE_COLUMNS.map(x=>x[0]);
+    const metaColumns=DEVICE_COLUMNS.map(x=>x[0]).filter(id=>visible.includes(id)&&!['device','state'].includes(id));
     this._message.className='small';
     this._message.textContent = data.baseline_complete ? '' : 'Đang chờ dữ liệu MikroTik lần đầu. Chưa phát cảnh báo thiết bị.';
     const sources = data.source_health || {};
@@ -689,12 +747,20 @@ class NetwatcherMikMiCard extends HTMLElement {
     const body=elt('tbody',this._table);
     for (const d of data.devices||[]) {
       const row=elt('tr',body);
+      row.style.setProperty('--nwm-meta-trailing',String(Math.max(1,metaColumns.length-1)));
       for(const [field,label] of DEVICE_COLUMNS.filter(([id])=>visible.includes(id))){
         const cell=elt('td',row);cell.dataset.col=field;cell.dataset.label=label;
+        // CSS grid positioning is used only in mobile card mode; table semantics remain desktop-native.
+        if(field==='device'){cell.style.gridRow='1';cell.style.gridColumn=visible.includes('state')?'1 / -2':'1 / -1';}
+        else if(field==='state'){cell.style.gridRow='1';cell.style.gridColumn='-2 / -1';}
+        else{cell.style.gridRow='2';cell.style.gridColumn=String(metaColumns.indexOf(field)+1);}
         if(field==='device'){
           cell.classList.add('name');cell.title=d.mac;
           const link=d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'none';
           const devLine=elt('div',cell,null,`device-label link-${link}`);
+          const linkText=link==='wifi'?'Wi-Fi':link==='lan'?'LAN':'Chưa xác định LAN/Wi-Fi';
+          devLine.title=`${linkText} · ${d.mac||''}`;
+          devLine.setAttribute('aria-label',`${linkText}: ${d.name||d.mac}`);
           miIcon(devLine,link==='none'?'devices':link);
           elt('span',devLine,d.name||d.mac);
         }else if(field==='ip'){
@@ -703,14 +769,6 @@ class NetwatcherMikMiCard extends HTMLElement {
           const state=d.online==='online'?'online':'offline';
           const pill=elt('span',cell,null,`pill state-pill ${state}`);
           miIcon(pill,state);elt('span',pill,state);
-        }else if(field==='link'){
-          const link=d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'none';
-          const conn=elt('div',cell,null,`connection-pill link-${link}`);
-          miIcon(conn,link==='none'?'devices':link);
-          elt('span',conn,link==='wifi'?'Wi-Fi':link==='lan'?'LAN':'—');
-          conn.title=link==='wifi'?'Được xác thực qua bảng đăng ký Wi-Fi MikroTik':
-            link==='lan'?`Port LAN được xác thực: ${d.port||'—'}`:
-            'RouterOS không có bằng chứng xác định LAN/Wi-Fi; không tự suy đoán từ ARP/DHCP.';
         }else if(field==='port'){
           elt('span',cell,d.ap_name||d.port||'—');
         }else if(field==='dhcp'){
