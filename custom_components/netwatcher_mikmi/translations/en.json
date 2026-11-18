@@ -3,39 +3,32 @@
   "config": {
     "step": {
       "user": {
-        "title": "Netwatcher MikMi - MikroTik and Xiaomi",
-        "description": "MikroTik API-SSL must have a certificate. Obtain and independently verify its SHA-256 fingerprint. Xiaomi uses HTTP local API with administrator credentials; enable it only after accepting the risk.",
+        "title": "Netwatcher MikMi - MikroTik",
+        "description": "MikroTik API-SSL must have a certificate. Obtain and independently verify its SHA-256 fingerprint.",
         "data": {
           "router_host": "MikroTik management IPv4 (RFC1918)",
           "router_port": "MikroTik API-SSL port (default 8729)",
           "router_username": "Read-only MikroTik API username",
           "router_password": "Read-only MikroTik API password",
-          "router_sha256_fingerprint": "RouterOS TLS certificate SHA-256 fingerprint",
-          "xiaomi_hosts": "Xiaomi nodes IPv4, comma-separated (optional)",
-          "xiaomi_password": "Xiaomi administrator password (optional)",
-          "acknowledge_xiaomi_http_risk": "I acknowledge the local HTTP/API credential risks of Xiaomi"
+          "router_sha256_fingerprint": "RouterOS TLS certificate SHA-256 fingerprint"
         }
       },
       "reauth_confirm": {
         "title": "Refresh credentials and certificate pin",
         "data": {
           "router_password": "MikroTik API password",
-          "router_sha256_fingerprint": "Trusted RouterOS SHA-256 certificate fingerprint",
-          "xiaomi_password": "Xiaomi administrator password"
+          "router_sha256_fingerprint": "Trusted RouterOS SHA-256 certificate fingerprint"
         }
       },
       "reconfigure": {
         "title": "Reconfigure Netwatcher MikMi",
-        "description": "Reconfiguration reconnects to the router. Reconfirm any Xiaomi HTTP risks.",
+        "description": "Reconfiguration reconnects to the router.",
         "data": {
           "router_host": "MikroTik host",
           "router_port": "MikroTik API-SSL port",
           "router_username": "MikroTik API account",
           "router_password": "MikroTik password",
-          "router_sha256_fingerprint": "SHA-256 certificate fingerprint",
-          "xiaomi_hosts": "Xiaomi IPs (comma-separated)",
-          "xiaomi_password": "Xiaomi password",
-          "acknowledge_xiaomi_http_risk": "I accept Xiaomi HTTP risks"
+          "router_sha256_fingerprint": "SHA-256 certificate fingerprint"
         }
       }
     },
@@ -43,9 +36,7 @@
       "cannot_connect": "Cannot connect to MikroTik API-SSL or read the necessary tables.",
       "invalid_auth": "MikroTik rejected the read-only account.",
       "bad_fingerprint": "RouterOS TLS certificate fingerprint mismatch. Do not bypass this error.",
-      "invalid_hosts": "Use distinct private IPv4 addresses only.",
-      "xiaomi_password_required": "Xiaomi password is required when enabling Xiaomi monitoring.",
-      "xiaomi_risk_ack_required": "Acknowledge Xiaomi local HTTP API risks before continuing."
+      "invalid_hosts": "Use distinct private IPv4 addresses only."
     },
     "abort": {
       "already_configured": "This MikroTik is already configured.",
@@ -63,7 +54,6 @@
           "notify_persistent": "Create Home Assistant persistent notifications for new dynamic devices",
           "enable_device_trackers": "Create a device_tracker entity for every discovered MAC (may be many)",
           "lan_endpoint_ports": "Verified single-device LAN ports, comma-separated (optional)",
-          "verified_direct_ap_hosts": "Xiaomi IPs proven to return DIRECT client lists only (optional)",
           "zalo_bot_enabled": "Enable personal Zalo notifications via Zalo Bot (unofficial API, account-ban risk)",
           "zalo_bot_account_selection": "Sender phone number (+84...) or Zalo Bot own ID",
           "zalo_bot_user_thread_ids": "Personal Zalo user thread IDs, comma-separated",
@@ -98,7 +88,6 @@
       }
     },
     "error": {
-      "invalid_direct_hosts": "Invalid LAN ports or direct AP IPs; direct AP IPs must already be configured Xiaomi nodes.",
       "invalid_options": "Invalid thread IDs or more than 20 recipients.",
       "missing_zalo_recipients": "Enter at least one user/group thread ID.",
       "invalid_zalo_account": "Sender must be a phone number (+84...) or numeric Own ID.",

@@ -3,39 +3,32 @@
   "config": {
     "step": {
       "user": {
-        "title": "Netwatcher MikMi - MikroTik va Xiaomi Mesh",
-        "description": "MikroTik API-SSL can chung chi TLS va van tay SHA-256 da kiem chung doc lap. Xiaomi su dung HTTP noi bo, co rui ro tai khoan quan tri va cookie.",
+        "title": "Netwatcher MikMi - MikroTik RouterOS",
+        "description": "MikroTik API-SSL yeu cau chung chi TLS va van tay SHA-256 da kiem chung doc lap.",
         "data": {
           "router_host": "IP quan tri MikroTik (mang rieng)",
           "router_port": "Cong API-SSL (8729)",
           "router_username": "Tai khoan API chi doc",
           "router_password": "Mat khau API MikroTik",
-          "router_sha256_fingerprint": "Van tay SHA-256 cua chung chi TLS",
-          "xiaomi_hosts": "IP cac node Xiaomi, phan cach dau phay (tuy chon)",
-          "xiaomi_password": "Mat khau quan tri Xiaomi",
-          "acknowledge_xiaomi_http_risk": "Toi chap nhan rui ro API HTTP cua Xiaomi"
+          "router_sha256_fingerprint": "Van tay SHA-256 cua chung chi TLS"
         }
       },
       "reauth_confirm": {
         "title": "Cap nhat xac thuc Netwatcher",
         "data": {
           "router_password": "Mat khau MikroTik",
-          "router_sha256_fingerprint": "Van tay SHA-256",
-          "xiaomi_password": "Mat khau Xiaomi"
+          "router_sha256_fingerprint": "Van tay SHA-256"
         }
       },
       "reconfigure": {
         "title": "Cau hinh lai Netwatcher MikMi",
-        "description": "Xac nhan lai rui ro HTTP Xiaomi neu su dung.",
+        "description": "Thay doi cau hinh ket noi RouterOS.",
         "data": {
           "router_host": "IP MikroTik",
           "router_port": "Cong API-SSL",
           "router_username": "Tai khoan API",
           "router_password": "Mat khau API",
-          "router_sha256_fingerprint": "Van tay SHA-256",
-          "xiaomi_hosts": "IP Xiaomi",
-          "xiaomi_password": "Mat khau Xiaomi",
-          "acknowledge_xiaomi_http_risk": "Chap nhan rui ro HTTP Xiaomi"
+          "router_sha256_fingerprint": "Van tay SHA-256"
         }
       }
     },
@@ -43,9 +36,7 @@
       "cannot_connect": "Khong doc duoc API-SSL MikroTik.",
       "invalid_auth": "Sai tai khoan hoac mat khau.",
       "bad_fingerprint": "Sai van tay TLS. Dung lai va kiem tra.",
-      "invalid_hosts": "Chi cho phep IPv4 mang rieng.",
-      "xiaomi_password_required": "Can mat khau Xiaomi.",
-      "xiaomi_risk_ack_required": "Can chap nhan rui ro HTTP Xiaomi."
+      "invalid_hosts": "Chi cho phep IPv4 mang rieng."
     },
     "abort": {
       "already_configured": "Da them MikroTik nay.",
@@ -63,7 +54,6 @@
           "notify_persistent": "Hien thong bao lau dai",
           "enable_device_trackers": "Tao entity tracker cho tung MAC",
           "lan_endpoint_ports": "Cong LAN dau cuoi da xac nhan",
-          "verified_direct_ap_hosts": "IP AP Xiaomi da kiem chung danh sach client truc tiep",
           "zalo_bot_enabled": "Bật Zalo cá nhân qua tích hợp Zalo Bot (API không chính thức; rủi ro khóa tài khoản)",
           "zalo_bot_account_selection": "Tài khoản Zalo gửi: số điện thoại (+84...) hoặc OwnID trong Zalo Bot",
           "zalo_bot_user_thread_ids": "Thread ID người dùng Zalo thường, phân cách bằng dấu phẩy",
@@ -98,7 +88,6 @@
       }
     },
     "error": {
-      "invalid_direct_hosts": "Invalid LAN ports or direct AP IPs; direct AP IPs must already be configured Xiaomi nodes.",
       "invalid_options": "Danh sách Thread ID không hợp lệ hoặc vượt 20 nơi nhận.",
       "missing_zalo_recipients": "Cần ít nhất một Thread ID cá nhân hoặc nhóm.",
       "invalid_zalo_account": "Tài khoản gửi phải là số điện thoại (+84...) hoặc OwnID dạng số.",
