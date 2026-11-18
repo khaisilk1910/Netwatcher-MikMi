@@ -1,0 +1,93 @@
+{
+  "title": "Netwatcher MikMi",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Netwatcher MikMi - MikroTik and Xiaomi",
+        "description": "MikroTik API-SSL must have a certificate. Obtain and independently verify its SHA-256 fingerprint. Xiaomi uses HTTP local API with administrator credentials; enable it only after accepting the risk.",
+        "data": {
+          "router_host": "MikroTik management IPv4 (RFC1918)",
+          "router_port": "MikroTik API-SSL port (default 8729)",
+          "router_username": "Read-only MikroTik API username",
+          "router_password": "Read-only MikroTik API password",
+          "router_sha256_fingerprint": "RouterOS TLS certificate SHA-256 fingerprint",
+          "xiaomi_hosts": "Xiaomi nodes IPv4, comma-separated (optional)",
+          "xiaomi_password": "Xiaomi administrator password (optional)",
+          "acknowledge_xiaomi_http_risk": "I acknowledge the local HTTP/API credential risks of Xiaomi"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Refresh credentials and certificate pin",
+        "data": {
+          "router_password": "MikroTik API password",
+          "router_sha256_fingerprint": "Trusted RouterOS SHA-256 certificate fingerprint",
+          "xiaomi_password": "Xiaomi administrator password"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Netwatcher MikMi",
+        "description": "Reconfiguration reconnects to the router. Reconfirm any Xiaomi HTTP risks.",
+        "data": {
+          "router_host": "MikroTik host",
+          "router_port": "MikroTik API-SSL port",
+          "router_username": "MikroTik API account",
+          "router_password": "MikroTik password",
+          "router_sha256_fingerprint": "SHA-256 certificate fingerprint",
+          "xiaomi_hosts": "Xiaomi IPs (comma-separated)",
+          "xiaomi_password": "Xiaomi password",
+          "acknowledge_xiaomi_http_risk": "I accept Xiaomi HTTP risks"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to MikroTik API-SSL or read the necessary tables.",
+      "invalid_auth": "MikroTik rejected the read-only account.",
+      "bad_fingerprint": "RouterOS TLS certificate fingerprint mismatch. Do not bypass this error.",
+      "invalid_hosts": "Use distinct private IPv4 addresses only.",
+      "xiaomi_password_required": "Xiaomi password is required when enabling Xiaomi monitoring.",
+      "xiaomi_risk_ack_required": "Acknowledge Xiaomi local HTTP API risks before continuing."
+    },
+    "abort": {
+      "already_configured": "This MikroTik is already configured.",
+      "unknown": "Configuration entry not found."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Netwatcher MikMi options",
+        "data": {
+          "poll_interval": "Poll interval (15-600 seconds)",
+          "offline_after": "Offline grace period (60-3600 seconds)",
+          "notify_existing_dynamic": "Alert about existing dynamic leases during FIRST baseline only",
+          "notify_persistent": "Create Home Assistant persistent notifications for new dynamic devices",
+          "enable_device_trackers": "Create a device_tracker entity for every discovered MAC (may be many)",
+          "lan_endpoint_ports": "Verified single-device LAN ports, comma-separated (optional)",
+          "verified_direct_ap_hosts": "Xiaomi IPs proven to return DIRECT client lists only (optional)",
+          "zalo_bot_enabled": "Enable personal Zalo notifications via Zalo Bot (unofficial API, account-ban risk)",
+          "zalo_bot_account_selection": "Sender phone number (+84...) or Zalo Bot own ID",
+          "zalo_bot_user_thread_ids": "Personal Zalo user thread IDs, comma-separated",
+          "zalo_bot_group_thread_ids": "Ordinary Zalo group thread IDs, comma-separated",
+          "zalo_notify_dynamic": "Zalo: alert newly discovered bound Dynamic DHCP (D) devices",
+          "zalo_notify_online": "Zalo: alert devices returning online (optional)",
+          "zalo_notify_offline": "Zalo: alert devices becoming offline (optional)",
+          "zalo_include_mac": "Include device MAC address in messages (privacy consideration)",
+          "enable_router_logs": "Read MikroTik logs via read-only API-SSL (admin-only viewer)",
+          "router_log_poll_interval": "RouterOS log poll interval in seconds (30–600)",
+          "notify_wan_security": "Enable WAN security alerts (HA event + local persistent notification)",
+          "zalo_notify_wan_security": "Send WAN alerts through Zalo Bot (requires Zalo and WAN alert options)",
+          "login_failures_threshold": "Management login failure count per public IP in 5 minutes (2–50)",
+          "wan_firewall_threshold": "NWMIKMI-WAN firewall log count per public source IP in 5 minutes (3–100)"
+        }
+      }
+    },
+    "error": {
+      "invalid_direct_hosts": "Invalid LAN ports or direct AP IPs; direct AP IPs must already be configured Xiaomi nodes.",
+      "invalid_options": "Invalid thread IDs or more than 20 recipients.",
+      "missing_zalo_recipients": "Enter at least one user/group thread ID.",
+      "invalid_zalo_account": "Sender must be a phone number (+84...) or numeric Own ID.",
+      "wan_zalo_requires_alerts": "Enable WAN alerts before enabling WAN Zalo delivery.",
+      "wan_alerts_require_logs": "Enable MikroTik log reading to detect WAN events."
+    }
+  }
+}

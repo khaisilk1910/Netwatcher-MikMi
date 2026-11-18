@@ -1,0 +1,12 @@
+{
+  "domain": "netwatcher_mikmi",
+  "name": "Netwatcher MikMi",
+  "version": "0.3.0-beta.1",
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "integration_type": "hub",
+  "dependencies": ["frontend", "http", "lovelace", "persistent_notification"],
+  "requirements": ["python-xiaomi-miwifi==0.6.0"],
+  "documentation": "https://www.home-assistant.io/",
+  "codeowners": []
+}

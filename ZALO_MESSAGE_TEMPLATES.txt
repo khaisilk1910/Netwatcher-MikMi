@@ -1,0 +1,67 @@
+NETWATCHER MIKMI — TIN MINH HỌA; DỮ LIỆU GIẢ, KHÔNG PHẢI LOG THẬT
+
+--- new_dynamic ---
+🚨 NETWATCHER MIKMI | THIẾT BỊ MỚI
+━━━━━━━━━━━━━━━━━━━━━━
+⚠️ DHCP: D (Dynamic) - chưa gán Static Lease
+
+📱 Thiết bị: Điện thoại phòng khách
+🌐 IP: 192.168.88.105
+🔖 MAC: AA:BB:CC:DD:EE:01
+📝 Comment: Điện thoại phòng khách
+🔒 DHCP: D - Dynamic
+🔌 Kết nối: Wi-Fi 5GHz
+📡 AP / Port: Xiaomi AX6000
+🕒 Thời gian: 18/11/2026 13:30:00
+
+🛡️ Kiểm tra thiết bị trước khi cho phép sử dụng mạng.
+🏠 Netwatcher MikMi | Network Monitor
+
+--- connected ---
+🟢 NETWATCHER MIKMI | ONLINE
+━━━━━━━━━━━━━━━━━━━━━━
+✅ Trạng thái: Đã kết nối
+
+📱 Thiết bị: Điện thoại phòng khách
+🌐 IP: 192.168.88.105
+🔖 MAC: AA:BB:CC:DD:EE:01
+📝 Comment: Điện thoại phòng khách
+🔒 DHCP: D - Dynamic
+🔌 Kết nối: Wi-Fi 5GHz
+📡 AP / Port: Xiaomi AX6000
+🕒 Thời gian: 18/11/2026 13:30:00
+
+✅ Thiết bị vừa trở lại trực tuyến.
+🏠 Netwatcher MikMi | Network Monitor
+
+--- disconnected ---
+🔴 NETWATCHER MIKMI | OFFLINE
+━━━━━━━━━━━━━━━━━━━━━━
+📴 Trạng thái: Không còn được phát hiện
+
+📱 Thiết bị: Điện thoại phòng khách
+🌐 IP: 192.168.88.105
+🔖 MAC: AA:BB:CC:DD:EE:01
+📝 Comment: Điện thoại phòng khách
+🔒 DHCP: D - Dynamic
+🔌 Kết nối: Wi-Fi 5GHz
+📡 AP / Port: Xiaomi AX6000
+🕒 Thời gian: 18/11/2026 13:30:00
+
+ℹ️ Offline theo dữ liệu quan sát, không khẳng định thiết bị tắt nguồn.
+🏠 Netwatcher MikMi | Network Monitor
+
+--- wan_security ---
+🚨 NETWATCHER MIKMI | CẢNH BÁO WAN
+━━━━━━━━━━━━━━━━━━━━━━
+⚠️ NHIỀU LẦN ĐĂNG NHẬP THẤT BẠI
+
+🌍 IP nguồn: 8.8.8.8
+🔁 Số lần ghi nhận trong 5 phút: 3
+🏷️ Phân loại: failed_admin_login
+📋 RouterOS topic: system,error,critical
+🕒 Thời điểm RouterOS: 18/11/2026 13:21:01
+
+ℹ️ Đây là cảnh báo từ log, KHÔNG phải kết luận router đã bị xâm nhập.
+🔒 Kiểm tra firewall input, nhật ký đăng nhập và VPN quản trị.
+🏠 Netwatcher MikMi | Network Security

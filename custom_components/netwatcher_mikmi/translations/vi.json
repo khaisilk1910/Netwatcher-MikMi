@@ -1,0 +1,93 @@
+{
+  "title": "Netwatcher MikMi",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Netwatcher MikMi - MikroTik va Xiaomi Mesh",
+        "description": "MikroTik API-SSL can chung chi TLS va van tay SHA-256 da kiem chung doc lap. Xiaomi su dung HTTP noi bo, co rui ro tai khoan quan tri va cookie.",
+        "data": {
+          "router_host": "IP quan tri MikroTik (mang rieng)",
+          "router_port": "Cong API-SSL (8729)",
+          "router_username": "Tai khoan API chi doc",
+          "router_password": "Mat khau API MikroTik",
+          "router_sha256_fingerprint": "Van tay SHA-256 cua chung chi TLS",
+          "xiaomi_hosts": "IP cac node Xiaomi, phan cach dau phay (tuy chon)",
+          "xiaomi_password": "Mat khau quan tri Xiaomi",
+          "acknowledge_xiaomi_http_risk": "Toi chap nhan rui ro API HTTP cua Xiaomi"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Cap nhat xac thuc Netwatcher",
+        "data": {
+          "router_password": "Mat khau MikroTik",
+          "router_sha256_fingerprint": "Van tay SHA-256",
+          "xiaomi_password": "Mat khau Xiaomi"
+        }
+      },
+      "reconfigure": {
+        "title": "Cau hinh lai Netwatcher MikMi",
+        "description": "Xac nhan lai rui ro HTTP Xiaomi neu su dung.",
+        "data": {
+          "router_host": "IP MikroTik",
+          "router_port": "Cong API-SSL",
+          "router_username": "Tai khoan API",
+          "router_password": "Mat khau API",
+          "router_sha256_fingerprint": "Van tay SHA-256",
+          "xiaomi_hosts": "IP Xiaomi",
+          "xiaomi_password": "Mat khau Xiaomi",
+          "acknowledge_xiaomi_http_risk": "Chap nhan rui ro HTTP Xiaomi"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Khong doc duoc API-SSL MikroTik.",
+      "invalid_auth": "Sai tai khoan hoac mat khau.",
+      "bad_fingerprint": "Sai van tay TLS. Dung lai va kiem tra.",
+      "invalid_hosts": "Chi cho phep IPv4 mang rieng.",
+      "xiaomi_password_required": "Can mat khau Xiaomi.",
+      "xiaomi_risk_ack_required": "Can chap nhan rui ro HTTP Xiaomi."
+    },
+    "abort": {
+      "already_configured": "Da them MikroTik nay.",
+      "unknown": "Khong thay cau hinh."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cấu hình Netwatcher MikMi",
+        "data": {
+          "poll_interval": "Chu ky lay du lieu (giay)",
+          "offline_after": "Cho xac nhan offline (giay)",
+          "notify_existing_dynamic": "Canh bao dynamic ton tai o lan baseline dau tien",
+          "notify_persistent": "Hien thong bao lau dai",
+          "enable_device_trackers": "Tao entity tracker cho tung MAC",
+          "lan_endpoint_ports": "Cong LAN dau cuoi da xac nhan",
+          "verified_direct_ap_hosts": "IP AP Xiaomi da kiem chung danh sach client truc tiep",
+          "zalo_bot_enabled": "Bật Zalo cá nhân qua tích hợp Zalo Bot (API không chính thức; rủi ro khóa tài khoản)",
+          "zalo_bot_account_selection": "Tài khoản Zalo gửi: số điện thoại (+84...) hoặc OwnID trong Zalo Bot",
+          "zalo_bot_user_thread_ids": "Thread ID người dùng Zalo thường, phân cách bằng dấu phẩy",
+          "zalo_bot_group_thread_ids": "Thread ID nhóm Zalo thường, phân cách bằng dấu phẩy",
+          "zalo_notify_dynamic": "🚨 Báo thiết bị mới có DHCP D (Dynamic)",
+          "zalo_notify_online": "🟢 Báo thiết bị vừa online",
+          "zalo_notify_offline": "🔴 Báo thiết bị vừa offline",
+          "zalo_include_mac": "Hiển thị MAC trong tin nhắn Zalo (lưu ý quyền riêng tư)",
+          "enable_router_logs": "Đọc log MikroTik (API-SSL, chỉ đọc; hiển thị cho quản trị viên)",
+          "router_log_poll_interval": "Chu kỳ đọc log MikroTik, giây (30–600)",
+          "notify_wan_security": "Bật phát hiện & cảnh báo truy cập WAN đáng ngờ (HA event + thông báo nội bộ)",
+          "zalo_notify_wan_security": "Gửi cảnh báo WAN bằng Zalo Bot (cần bật cả Zalo và cảnh báo WAN)",
+          "login_failures_threshold": "Ngưỡng đăng nhập quản trị sai từ cùng IP công cộng trong 5 phút (2–50)",
+          "wan_firewall_threshold": "Ngưỡng log NWMIKMI-WAN cùng IP nguồn trong 5 phút (3–100)"
+        }
+      }
+    },
+    "error": {
+      "invalid_direct_hosts": "Invalid LAN ports or direct AP IPs; direct AP IPs must already be configured Xiaomi nodes.",
+      "invalid_options": "Danh sách Thread ID không hợp lệ hoặc vượt 20 nơi nhận.",
+      "missing_zalo_recipients": "Cần ít nhất một Thread ID cá nhân hoặc nhóm.",
+      "invalid_zalo_account": "Tài khoản gửi phải là số điện thoại (+84...) hoặc OwnID dạng số.",
+      "wan_zalo_requires_alerts": "Bật cảnh báo WAN trước khi gửi qua Zalo.",
+      "wan_alerts_require_logs": "Bật đọc log MikroTik để có dữ liệu phát hiện."
+    }
+  }
+}
