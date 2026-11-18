@@ -81,8 +81,6 @@
           "hardware_cooldown_minutes": "Thời gian chống lặp cảnh báo phần cứng (phút)",
           "hardware_notify_recovery": "✅ Thông báo khi CPU/RAM/nhiệt độ đã hạ",
           "hardware_notify_zalo": "💬 Gửi cảnh báo phần cứng qua Zalo Bot đã cấu hình",
-          "netwatch_read_enabled": "📡 Đọc trạng thái RouterOS Netwatch có sẵn (chỉ đọc)",
-          "netwatch_poll_interval": "Chu kỳ Netwatch (giây, 60–600)",
           "router_wan_interface": "Tên PPPoE/WAN interface (để trống = tự phát hiện)"
         }
       }
