@@ -3,7 +3,7 @@ from __future__ import annotations
 
 DOMAIN = "netwatcher_mikmi"
 NAME = "Netwatcher MikMi"
-VERSION = "0.4.1-beta.5"
+VERSION = "0.4.1-beta.6"
 
 CONF_ROUTER_HOST = "router_host"
 CONF_ROUTER_PORT = "router_port"
