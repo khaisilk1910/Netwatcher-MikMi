@@ -12,6 +12,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 
+METRIC_ICONS = {
+    "total": "mdi:devices", "online": "mdi:check-network", "offline": "mdi:lan-disconnect",
+    "unknown": "mdi:help-network", "dynamic": "mdi:alert-network",
+    "unapproved": "mdi:shield-alert-outline",
+}
+SOURCE_ICONS = {"mikrotik": "mdi:router-network", "xiaomi": "mdi:access-point-network",
+                "router_logs": "mdi:text-box-search-outline", "netwatch": "mdi:monitor-eye"}
+
 METRICS = (
     ("total", "Devices total"),
     ("online", "Devices online"),
@@ -81,6 +89,10 @@ class InventorySensor(MikMiEntity):
     _attr_native_unit_of_measurement = "devices"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
+    def __init__(self, coordinator, entry, key, name):
+        super().__init__(coordinator, entry, key, name)
+        self._attr_icon = METRIC_ICONS.get(key, "mdi:devices")
+
     @property
     def native_value(self):
         return self.coordinator.inventory.statistics().get(self._key, 0)
@@ -94,6 +106,7 @@ class SourceSensor(MikMiEntity):
     def __init__(self, coordinator, entry, source):
         super().__init__(coordinator, entry, f"source_{source}", f"{source.title()} source")
         self._source = source
+        self._attr_icon = SOURCE_ICONS.get(source, "mdi:lan")
 
     @property
     def native_value(self):

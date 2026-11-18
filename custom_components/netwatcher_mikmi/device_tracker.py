@@ -53,6 +53,17 @@ class MikMiTracker(CoordinatorEntity, ScannerEntity):
         return self._record.get("online") == "online"
 
     @property
+    def icon(self):
+        """Show link type and presence without changing the underlying tracker state."""
+        link = self._record.get("connection")
+        online = self._record.get("online")
+        if link == "wifi":
+            return "mdi:wifi" if online == "online" else "mdi:wifi-off"
+        if link == "lan":
+            return "mdi:lan-connect" if online == "online" else "mdi:lan-disconnect"
+        return "mdi:devices" if online == "online" else "mdi:help-network"
+
+    @property
     def source_type(self):
         return SourceType.ROUTER
 

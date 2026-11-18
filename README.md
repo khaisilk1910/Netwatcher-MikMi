@@ -1,8 +1,30 @@
 # Netwatcher MikMi — MikroTik, Xiaomi Mesh, Router Health, Zalo Bot và cảnh báo WAN
 
-**Phiên bản:** `0.4.0-beta.1` · **Home Assistant custom integration** · ngôn ngữ UI English/Tiếng Việt · **beta, chưa xác nhận chạy trên thiết bị thật**.
+**Phiên bản:** `0.4.1-beta.1` · **Home Assistant custom integration** · ngôn ngữ UI English/Tiếng Việt · **beta, chưa xác nhận chạy trên thiết bị thật**.
 
 > ⚠️ **BẢO MẬT VÀ AN TOÀN VẬN HÀNH:** Phần mềm này chỉ **đọc** RouterOS qua API-SSL, không tự thay firewall, không mở cổng, không chặn IP và không thay DHCP. Chỉ cài trên mạng do bạn sở hữu hoặc được phép quản trị. Sao lưu cấu hình MikroTik/Home Assistant, thao tác Safe Mode khi sửa firewall. Mọi kết luận “bất thường” là tín hiệu xem xét, **không phải bằng chứng đã bị xâm nhập**.
+
+## MỚI TRONG v0.4.1 — Bộ icon Cyber Network + nhận diện thương hiệu
+
+![Bộ icon Netwatcher MikMi](preview/icon_gallery.png)
+
+![Router Health với bộ icon mới (dữ liệu giả lập)](preview/router_health_icons_desktop.png)
+
+- Có **33 icon SVG vector** đồng bộ phong cách, không sử dụng CDN/phông icon ngoài; xem `custom_components/netwatcher_mikmi/frontend/icons/` và `ICON_PACK.md`.
+- Logo gốc của **Netwatcher MikMi** trong `custom_components/netwatcher_mikmi/brand/`: `icon.png`, `dark_icon.png`, `icon@2x.png`, `dark_icon@2x.png`, `logo.png`, `dark_logo.png` và bản `@2x`. Home Assistant **2026.3+** hỗ trợ brand ảnh ngay trong custom integration, tự hiển thị tại Settings → Devices & Services. Không phải cài thêm plugin ảnh.
+- Lovelace Card hiển thị icon thống nhất trong header, bốn tab, ô thống kê, trạng thái kết nối, Netwatch, WAN log và thông số CPU/RAM/nhiệt độ. Vẫn có **nhãn chữ trạng thái** (online, offline, cảnh báo…) để không phụ thuộc hoàn toàn vào màu.
+- Visual Editor thêm **Show integration brand icon** (`show_brand`) và **Icon appearance** (`icon_style`: `cyber` hoặc `mono`). Mặc định `cyber`, tùy chọn `mono` đơn sắc, không sửa dữ liệu backend.
+- Entity tổng hợp, nguồn dữ liệu và device tracker cũng có icon Material Design phù hợp trạng thái. Unique ID, domain, config entry và tùy chọn Zalo cũ giữ nguyên.
+
+### Nâng cấp từ v0.4.0-beta.1 lên v0.4.1-beta.1
+
+1. Sao lưu Home Assistant. **Không xóa config entry hoặc thư mục `.storage` Netwatcher**.
+2. Giải nén ZIP mới, chép đè **toàn bộ** `custom_components/netwatcher_mikmi/` vào `/config/custom_components/netwatcher_mikmi/`. Bắt buộc chép cả `brand/` và `frontend/assets/`.
+3. Khởi động lại Home Assistant. Trong Lovelace storage mode, resource cập nhật tự động thành `?v=0.4.1-beta.1`; ở YAML mode, sửa tham số phiên bản thủ công.
+4. Làm mới cache trình duyệt nếu giao diện còn icon cũ. Chọn card → Edit → **Icon appearance** để thử `Cyber gradient` hoặc `Minimal / monochrome`.
+5. Kiểm tra Settings → Devices & Services → Netwatcher MikMi: icon thương hiệu thường xuất hiện sau khi reload, Home Assistant cache có thể khiến ảnh cũ tiếp tục hiển thị tạm thời.
+
+**Lưu ý bảo mật:** PNG/SVG chỉ là ảnh cục bộ, không có script, liên kết bên ngoài hay token. Bộ icon không thêm quyền quản trị, API hoặc cổng mới; nhưng quyền xem dữ liệu thiết bị/log vẫn phụ thuộc xác thực administrator Home Assistant và firewall MikroTik như trước. Tránh cài icon pack không rõ nguồn chứa SVG có script. Đối với HACS/Marketplace, giao diện hình ảnh có thể thay đổi theo phiên bản frontend và cache.
 
 ## MỚI TRONG v0.4 — Router Health + Netwatch + WAN throughput
 
@@ -30,7 +52,7 @@
 1. Sao lưu thư mục cấu hình Home Assistant, dữ liệu `.storage` và bản export MikroTik. Không xóa config entry Netwatcher đang có.
 2. Giải nén ZIP v0.4 rồi **ghi đè toàn bộ thư mục** `/config/custom_components/netwatcher_mikmi/` (không chép thêm một thư mục lồng `netwatcher-mikmi`).
 3. Khởi động lại Home Assistant; vào **Settings → Devices & Services → Netwatcher MikMi → Configure**, lưu lại Options để xuất hiện các trường v0.4.
-4. Truy cập dashboard: tài nguyên JS đã đăng ký trong storage mode tự đổi sang `?v=0.4.0-beta.1`. Nếu cần xóa cache trình duyệt hoặc hard refresh. Với Lovelace YAML resource, tự sửa URL. **Không thêm một resource trùng lặp**.
+4. Truy cập dashboard: tài nguyên JS đã đăng ký trong storage mode tự đổi sang `?v=0.4.1-beta.1`. Nếu cần xóa cache trình duyệt hoặc hard refresh. Với Lovelace YAML resource, tự sửa URL. **Không thêm một resource trùng lặp**.
 5. Mở tab **Router Health**, so sánh CPU/RAM/nhiệt độ và firmware với WinBox/Terminal. Chọn tên PPPoE của bạn trong tùy chọn `router_wan_interface` nếu WAN không được nhận diện.
 6. Thử cảnh báo ngưỡng trên router thử nghiệm hoặc bằng cách đặt ngưỡng **trong phạm vi an toàn** trong thời gian ngắn, sau đó hoàn nguyên. Không tạo tải CPU cực lớn, không cố làm quá nhiệt router đang cấp Internet cho gia đình/doanh nghiệp.
 
@@ -102,7 +124,7 @@ Trong YAML resource mode, đăng ký một URL JavaScript duy nhất (sau khi t�
 
 ```yaml
 resources:
-  - url: /netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.4.0-beta.1
+  - url: /netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.4.1-beta.1
     type: module
 ```
 
@@ -305,7 +327,7 @@ show_dhcp: true
 show_logs: true
 ```
 
-Card đăng ký JavaScript resource khi HA sử dụng Lovelace storage mode; URL dự kiến `/netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.4.0-beta.1`. Với YAML mode, thêm resource `type: module` theo URL trên. Sau khi nâng cấp hãy reload trang với cache refresh nếu UI vẫn hiển thị phiên bản cũ.
+Card đăng ký JavaScript resource khi HA sử dụng Lovelace storage mode; URL dự kiến `/netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.4.1-beta.1`. Với YAML mode, thêm resource `type: module` theo URL trên. Sau khi nâng cấp hãy reload trang với cache refresh nếu UI vẫn hiển thị phiên bản cũ.
 
 - Tab **Thiết bị**: trạng thái online/offline/unknown, static/dynamic, comment, loại kết nối và AP (nếu đủ chứng cứ), phê duyệt cục bộ. Nút Test Zalo Bot gửi một tin thử đến **mọi nơi nhận cấu hình**, giới hạn 1 lần/phút.
 - Tab **MikroTik Logs**: danh sách log gần nhất (topic, thời điểm RouterOS, severity, nội dung), lọc **Tất cả / Bảo mật / Warning**, tìm kiếm và phân trang. **Chỉ tài khoản HA admin** được gọi WebSocket endpoint. Không lưu raw log dài hạn.

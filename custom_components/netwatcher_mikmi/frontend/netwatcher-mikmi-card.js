@@ -1,4 +1,4 @@
-/* Netwatcher MikMi Lovelace Card v0.4.0-beta.1 (no dependencies, no credentials).
+/* Netwatcher MikMi Lovelace Card v0.4.1-beta.1 (no dependencies, no credentials).
  * All device-provided strings are inserted with textContent, never innerHTML.
  * Backend WebSocket checks administrator privileges on every request.
  */
@@ -67,6 +67,54 @@ th{font-weight:600;color:var(--secondary-text-color)}.name{font-weight:600;max-w
 .approve{border:1px solid var(--divider-color);background:transparent;color:var(--primary-text-color);
 border-radius:7px;padding:5px 8px;cursor:pointer;white-space:nowrap}
 @media(max-width:600px){ha-card{padding:10px}th,td{padding:8px 5px}.stat strong{font-size:20px}}
+
+/* Netwatcher MikMi v0.4.1 icon system. SVG assets are local and DOM-only. */
+:host{--nwm-cyan:#22d3ee;--nwm-violet:#a78bfa;--nwm-good:#10b981;--nwm-bad:#fb7185}
+.header{min-height:78px;background:linear-gradient(118deg,#081b33 0%,#112a49 49%,#263067 100%);padding:18px 23px;margin:-16px -16px 15px;border-bottom:1px solid rgba(123,192,255,.25)}
+.brand-head,.model-line,.device-label,.connection-pill,.stat-caption,.gauge-top,.log-level{display:flex;align-items:center;gap:9px;min-width:0}
+.brand-head{gap:14px;position:relative;z-index:1}.brand-avatar{width:53px;height:53px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(34,211,238,.20))}
+.brand-title-group{min-width:0}.brand-title-group .title{font-size:20px;line-height:1.25;color:#edf8ff;font-weight:850;letter-spacing:.1px}
+.brand-subtitle{font-size:9px;font-weight:700;letter-spacing:1.25px;color:#9bb8dd;margin-top:5px}
+.header .hint{color:#b3c9e4;font-size:11px;font-weight:600}
+.mi-icon{width:19px;height:19px;flex:none;display:inline-block;vertical-align:middle;stroke:currentColor}
+.icon-chip{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:11px;color:#25dcf5;background:linear-gradient(145deg,rgba(27,202,225,.21),rgba(61,99,229,.16));border:1px solid rgba(47,210,242,.20);box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
+.icon-chip .mi-icon{width:19px;height:19px}.tone-green{color:#10b981;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.20)}
+.tone-blue{color:#2ea8ef;background:rgba(59,130,246,.13);border-color:rgba(59,130,246,.19)}
+.tone-cyan{color:#0ac4dd;background:rgba(34,211,238,.13)}
+.tone-red{color:#f43f5e;background:rgba(244,63,94,.13);border-color:rgba(244,63,94,.22)}
+.tone-amber{color:#f59e0b;background:rgba(245,158,11,.13);border-color:rgba(245,158,11,.22)}
+.tone-purple{color:#a78bfa;background:rgba(139,92,246,.14);border-color:rgba(139,92,246,.20)}
+.tone-muted{color:#94a3b8;background:rgba(148,163,184,.10);border-color:rgba(148,163,184,.18)}
+.tabs{display:flex;gap:8px;overflow-x:auto;margin:8px 0 17px;padding:4px 0 7px}
+.tabs button{display:inline-flex;align-items:center;gap:8px;border-radius:13px;padding:10px 14px;transition:background .2s,transform .2s,border-color .2s}
+.tabs button.active{background:linear-gradient(135deg,rgba(14,165,233,.18),rgba(139,92,246,.12));border-color:rgba(56,189,248,.48);box-shadow:0 2px 12px rgba(51,148,237,.08)}
+.tabs .tab-icon{width:17px;height:17px;color:#38bdf8}.tabs button.active .tab-icon{color:#05c5e9}
+.gauge-top{justify-content:center;gap:8px}.gauge-symbol{color:#38bdf8;width:17px;height:17px}
+.gauge-top.gauge-warn .gauge-symbol{color:#f59e0b}.gauge-top.gauge-danger .gauge-symbol{color:#fb7185}.gauge-top.gauge-muted .gauge-symbol{color:#94a3b8}
+.hw-tile{background:linear-gradient(145deg,var(--card-background-color),var(--secondary-background-color));border-radius:15px;transition:border-color .2s}
+.hw-tile .icon-chip{width:32px;height:32px}.hw-tile .key{font-weight:600;margin-top:8px}
+.model-line{gap:9px}.hw-model{font-size:19px}.model-line .icon-chip{width:35px;height:35px}
+.section-title{display:flex;gap:9px;align-items:center;margin:18px 0 11px;font-size:15px;font-weight:800}
+.section-title .mi-icon{color:#0ea5e9}
+.stat{border:1px solid var(--divider-color);border-radius:16px;background:linear-gradient(140deg,var(--secondary-background-color),var(--card-background-color));padding:13px}
+.stat-caption{justify-content:flex-start;gap:8px}.stat .icon-chip{width:29px;height:29px;border-radius:9px}.stat .icon-chip .mi-icon{width:16px;height:16px}
+.stat-caption span:last-child{font-size:11px;color:var(--secondary-text-color);font-weight:650}
+.stat strong{font-size:26px;margin:8px 0 0;font-variant-numeric:tabular-nums}
+.stat-online strong{color:#10b981}.stat-offline strong{color:#fb7185}.stat-dynamic strong{color:#f59e0b}.stat-unapproved strong{color:#a78bfa}
+.device-label .mi-icon{width:17px;height:17px;color:#0ea5e9}.device-label span{overflow:hidden;text-overflow:ellipsis}
+.connection-pill .mi-icon{width:16px;height:16px;color:#38bdf8}
+.state-pill,.log-level{display:inline-flex;align-items:center;gap:5px;font-weight:750;padding:5px 9px}
+.state-pill .mi-icon,.pill .mi-icon,.log-level .mi-icon{width:14px;height:14px;vertical-align:middle}
+.state-pill.online{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.09);color:#0eaf82}
+.state-pill.offline{border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.09);color:#e75a78}
+.state-pill.unknown{color:var(--secondary-text-color)}
+.pill.dynamic{color:#d98b0c;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.30);display:inline-flex;gap:5px;align-items:center}
+.log-level{border-radius:8px;background:rgba(14,165,233,.09);color:var(--secondary-text-color);font-size:11px}
+.log-level.warn{background:rgba(245,158,11,.13);color:#d98b0c}
+.toolbar button{display:inline-flex;align-items:center;gap:7px}.button-icon{width:16px;height:16px;color:#0ea5e9}
+.nwm-theme-mono .icon-chip{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color);box-shadow:none}
+.nwm-theme-mono .tabs .tab-icon,.nwm-theme-mono .gauge-symbol{color:var(--secondary-text-color)}
+@media(max-width:600px){.header{margin:-10px -10px 12px;padding:16px 12px}.brand-avatar{width:42px;height:42px}.brand-title-group .title{font-size:16px}.brand-subtitle{font-size:8px;letter-spacing:.5px}.header .hint{font-size:10px}.tabs button{padding:9px}.tabs button .mi-icon{width:16px;height:16px}.stat-caption span:last-child{font-size:10px}}
 `;
 function elt(tag, parent, text, className) {
   const node = document.createElement(tag);
@@ -76,8 +124,33 @@ function elt(tag, parent, text, className) {
   return node;
 }
 
+const ICON_PATHS = Object.freeze({"brand":"M12 2 20.5 6.5V12c0 5.1-3.4 8.5-8.5 10-5.1-1.5-8.5-4.9-8.5-10V6.5L12 2ZM7.5 13.8l2.4 2.4 6.7-6.7 M9 8.7c1.6-1.5 4.4-1.5 6 0","router":"M4 10V6 M8 10V4 M3 11h18v8H3z M7.4 15.5h.01 M11.4 15.5h.01 M15.4 15.5h.01 M19 15.5h.01","mesh":"M12 2.8v3.4 M7 7.6l5-1.4 5 1.4 M7 7.6l-3.8 8.8 M17 7.6l3.8 8.8 M3.2 16.4l8.8 4 8.8-4 M9 6.2a3 3 0 1 0 6 0a3 3 0 1 0-6 0 M1.2 16.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M18.8 16.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0","shield":"M12 2 20.5 6.5V12c0 5.1-3.4 8.5-8.5 10-5.1-1.5-8.5-4.9-8.5-10V6.5z M8.5 12.5l2.3 2.3 4.8-5","cpu":"M6 6h12v12H6z M9 9h6v6H9z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4","ram":"M3 7h18v10H3z M7 7v4 M11 7v4 M15 7v4 M19 7v4 M7 17v2 M17 17v2 M7 13h.01 M11 13h.01 M15 13h.01","thermometer":"M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0Z M12 8v9 M12 18h.01","warning":"M12 3 2.7 20h18.6L12 3z M12 9v5 M12 17h.01","devices":"M4 5h13v10H4z M9 20h13v-9h-4 M7 18h7 M10.5 15v3","online":"M12 21a9 9 0 1 0 0-18 9 9 0 1 0 0 18z M7.5 12.2l3.1 3.1 6.1-6.5","offline":"M12 21a9 9 0 1 0 0-18 9 9 0 1 0 0 18z M8 8l8 8 M16 8l-8 8","unknown":"M12 21a9 9 0 1 0 0-18 9 9 0 1 0 0 18z M9.7 9.5a2.4 2.4 0 1 1 3.6 2.1c-.8.5-1.3 1-1.3 2 M12 17h.01","dynamic":"M7 3h10l4 4v14H3V7z M7 12h10 M12 8v8 M7 17h10","wifi":"M2 9a15 15 0 0 1 20 0 M5 12.5a10.5 10.5 0 0 1 14 0 M8.5 16a5.5 5.5 0 0 1 7 0 M12 20h.01","lan":"M12 3v6 M5 21v-7h14v7 M5 14h14 M5 21h.01 M12 21h.01 M19 21h.01 M12 9h-7v5 M12 9h7v5","netwatch":"M3 12h3l3-6 4 12 3-6h5 M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2","logs":"M8 3h10v18H6a2 2 0 0 1-2-2V7h3 M9 8h6 M9 12h6 M9 16h4","firewall":"M3 4h18v16H3z M3 9h18 M3 15h18 M9 4v5 M15 9v6 M9 15v5 M7 9v6","download":"M12 3v13 M7 11l5 5 5-5 M4 18v3h16v-3","upload":"M12 17V4 M7 9l5-5 5 5 M4 18v3h16v-3","storage":"M4 7h16v10H4z M7 12h.01 M10 12h.01 M13 12h5","voltage":"M13 2 5 13h6l-1 9 9-12h-6z","fan":"M12 12c2.5-1.9 3.2-7.2.9-8-2.6-1-3.9 2.4-3.8 5.6 M12 12c1.9 2.5 7.2 3.2 8 .9 1-2.6-2.4-3.9-5.6-3.8 M12 12c-2.5 1.9-3.2 7.2-.9 8 2.6 1 3.9-2.4 3.8-5.6 M12 15a3 3 0 1 0 0-6 3 3 0 1 0 0 6","clock":"M12 21a9 9 0 1 0 0-18 9 9 0 1 0 0 18z M12 7v5l4 2","firmware":"M5 8h14v8H5z M9 4v4 M15 4v4 M9 16v4 M15 16v4 M2 11h3 M19 11h3","hardware":"M4 12h16 M12 4v16 M8 8h8v8H8z M5 5h.01 M19 5h.01 M5 19h.01 M19 19h.01","approved":"M12 21a9 9 0 1 0 0-18 9 9 0 1 0 0 18z M7.5 12l3.3 3.4 6-6.8","unapproved":"M12 3v12 M12 18h.01 M4 21h16l-8-18z","search":"M11 18a7 7 0 1 0 0-14 7 7 0 1 0 0 14z M16 16l5 5","refresh":"M20 11a8 8 0 0 0-14-5L3 9 M3 3v6h6 M4 13a8 8 0 0 0 14 5l3-3 M21 21v-6h-6","info":"M12 21a9 9 0 1 0 0-18 9 9 0 1 0 0 18z M12 11v6 M12 7h.01","lock":"M5 11h14v10H5z M8 11V8a4 4 0 0 1 8 0v3 M12 15v2","alert":"M12 3 2.7 20h18.6z M12 9v5 M12 17h.01"});
+const XMLNS = 'http://www.w3.org/2000/svg';
+function miIcon(parent, name, className = 'mi-icon') {
+  const svg = document.createElementNS(XMLNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.8');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('focusable', 'false');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('class', className);
+  const path = document.createElementNS(XMLNS, 'path');
+  path.setAttribute('d', ICON_PATHS[name] || ICON_PATHS.unknown);
+  svg.appendChild(path);
+  parent.appendChild(svg);
+  return svg;
+}
+function miBadge(parent,name,tone='cyan') {
+  const wrapper=elt('span',parent,null,`icon-chip tone-${tone}`);
+  miIcon(wrapper,name);
+  return wrapper;
+}
+
 class NetwatcherMikMiCard extends HTMLElement {
-  static getStubConfig() { return {type: `custom:${CARD_TAG}`, title: 'Netwatcher MikMi', page_size: 25, show_ap: true, show_dhcp: true, show_logs: true, show_hardware: true, show_netwatch: true, show_traffic: true, show_sensors: true, default_view:'hardware'}; }
+  static getStubConfig() { return {type: `custom:${CARD_TAG}`, title: 'Netwatcher MikMi', page_size: 25, show_ap: true, show_dhcp: true, show_logs: true, show_hardware: true, show_netwatch: true, show_traffic: true, show_sensors: true, show_brand: true, icon_style: 'cyber', default_view:'hardware'}; }
   static getConfigElement() { return document.createElement('netwatcher-mikmi-card-editor'); }
   getCardSize() { return 5; }
   setConfig(config) {
@@ -97,8 +170,19 @@ class NetwatcherMikMiCard extends HTMLElement {
     root.replaceChildren();
     elt('style', root, STORAGE_STYLES);
     this._card = elt('ha-card', root);
+    this._card.classList.add(this._config.icon_style === 'mono' ? 'nwm-theme-mono' : 'nwm-theme-cyber');
     const header = elt('div', this._card, null, 'header');
-    elt('div', header, this._config.title || 'Netwatcher MikMi', 'title');
+    const brand=elt('div',header,null,'brand-head');
+    if (this._config.show_brand !== false) {
+      const badge=elt('img',brand,null,'brand-avatar');
+      badge.alt='Netwatcher MikMi';
+      badge.width=50;badge.height=50;
+      const preview=window.location.pathname.endsWith('/router_health_demo.html');
+      badge.src=preview ? '../custom_components/netwatcher_mikmi/frontend/assets/netwatcher-brand-icon.png' : '/netwatcher-mikmi/assets/netwatcher-brand-icon.png';
+    } else { miBadge(brand,'shield','cyan'); }
+    const brandTitles=elt('div',brand,null,'brand-title-group');
+    elt('div',brandTitles,this._config.title || 'Netwatcher MikMi','title');
+    elt('div',brandTitles,'NETWORK INTELLIGENCE · MIKROTIK + XIAOMI','brand-subtitle');
     this._health = elt('div', header, 'Connecting...', 'hint');
     this._stats = elt('div', this._card, null, 'stats');
     const views = ['hardware','devices','netwatch','logs'];
@@ -110,13 +194,15 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._stats.hidden=this._view!=='devices';
     const tabButtons = {};
     const tabSpecs = [
-      ['hardware','🛡️ Router Health',this._config.show_hardware!==false],
-      ['devices','📱 Thiết bị',true],
-      ['netwatch','📡 Netwatch',this._config.show_netwatch!==false],
-      ['logs','📋 Nhật ký WAN',this._config.show_logs!==false],
+      ['hardware','Router Health','cpu',this._config.show_hardware!==false],
+      ['devices','Thiết bị','devices',true],
+      ['netwatch','Netwatch','netwatch',this._config.show_netwatch!==false],
+      ['logs','Nhật ký WAN','firewall',this._config.show_logs!==false],
     ];
-    for (const [key,label,visible] of tabSpecs) {
-      const btn = elt('button',this._tabs,label);
+    for (const [key,label,glyph,visible] of tabSpecs) {
+      const btn = elt('button',this._tabs);
+      miIcon(btn,glyph,'mi-icon tab-icon');
+      elt('span',btn,label);
       if (!visible) btn.hidden=true;
       btn.classList.toggle('active',key===this._view);
       tabButtons[key]=btn;
@@ -158,6 +244,7 @@ class NetwatcherMikMiCard extends HTMLElement {
       });
     }
     const testZalo = elt('button', toolbar, 'Test Zalo Bot');
+    miIcon(testZalo,'alert','mi-icon button-icon');
     testZalo.title = 'Send a test message via personal-account Zalo Bot to configured recipients (unofficial API).';
     testZalo.addEventListener('click', async () => {
       if (!this._hass || !window.confirm('Send a test message to every configured Zalo recipient?')) return;
@@ -170,6 +257,7 @@ class NetwatcherMikMiCard extends HTMLElement {
       finally { testZalo.disabled = false; }
     });
     const refresh = elt('button', toolbar, 'Refresh');
+    miIcon(refresh,'refresh','mi-icon button-icon');
     refresh.addEventListener('click', () => this._refresh(true));
     this._message = elt('div', this._deviceView, '', 'small');
     const wrap = elt('div', this._deviceView, null, 'table-wrap');
@@ -192,6 +280,7 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._logSearch.placeholder = 'Tìm log theo topic hoặc nội dung';
     this._logSearch.addEventListener('change', () => {this._offset=0;this._refresh(true);});
     const logRefresh = elt('button', logsToolbar, 'Làm mới');
+    miIcon(logRefresh,'refresh','mi-icon button-icon');
     logRefresh.addEventListener('click', () => this._refresh(true));
     this._logMessage = elt('div', this._logView, '', 'small');
     const logWrap = elt('div', this._logView, null, 'table-wrap');
@@ -251,7 +340,10 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._hwMessage.textContent=available ? '' :
       `Không có dữ liệu mới từ RouterOS (${data.source_error || 'chưa cập nhật'}). Không hiển thị số liệu cũ như số liệu hiện tại.`;
     const top=elt('div',this._hwContent,null,'hw-title');
-    const left=elt('div',top),model=elt('div',left,b.model || 'MikroTik Router','hw-model');
+    const left=elt('div',top);
+    const titleLine=elt('div',left,null,'model-line');
+    miBadge(titleLine,'router','cyan');
+    const model=elt('div',titleLine,b.model || 'MikroTik Router','hw-model');
     elt('div',left,`RouterOS ${b.routeros_version || '—'} · ${b.architecture || '—'} · ${b.cpu_count||r.cpu_count||'—'} core(s)`,'hw-sub');
     const active=available&&Object.entries(a).some(([key,v])=>v&&r[key]!=null&&Number(r[key])>=Number(v.threshold));
     const warning=available&&Object.entries(a).some(([k,v])=>v?.enabled&&r[k]!=null&&r[k]>=v.threshold*.85);
@@ -270,24 +362,26 @@ class NetwatcherMikMiCard extends HTMLElement {
       `${Math.floor(r.uptime_seconds/86400)}d ${Math.floor(r.uptime_seconds%86400/3600)}h ${Math.floor(r.uptime_seconds%3600/60)}m`:'—';
     const values=[
       ...(this._config.show_traffic===false ? [] : [
-        ['⬇️','WAN Download',bpsToMbps(wan.rx_bps)],
-        ['⬆️','WAN Upload',bpsToMbps(wan.tx_bps)],
+        ['download','WAN Download',bpsToMbps(wan.rx_bps),'green'],
+        ['upload','WAN Upload',bpsToMbps(wan.tx_bps),'purple'],
       ]),
-      ['💽','Lưu trữ',fmt(r.storage,'%')],
-      ['⚡','Điện áp',fmt(r.voltage,' V')],
-      ['🌀','Quạt',fmt(r.fan_rpm,' RPM')],
-      ['🧠','RAM tổng',fmt(r.total_ram_mib,' MiB')],
-      ['💻','Xung CPU',fmt(r.cpu_frequency_mhz,' MHz')],
-      ['⏳','Uptime',uptime],
-      ['🧩','CPU',b.cpu_name||'—'],
-      ['🔩','Firmware',b.firmware||'—'],
+      ['storage','Lưu trữ',fmt(r.storage,'%'),'blue'],
+      ['voltage','Điện áp',fmt(r.voltage,' V'),'amber'],
+      ['fan','Quạt',fmt(r.fan_rpm,' RPM'),'green'],
+      ['ram','RAM tổng',fmt(r.total_ram_mib,' MiB'),'purple'],
+      ['cpu','Xung CPU',fmt(r.cpu_frequency_mhz,' MHz'),'blue'],
+      ['clock','Uptime',uptime,'muted'],
+      ['hardware','CPU',b.cpu_name||'—','cyan'],
+      ['firmware','Firmware',b.firmware||'—','purple'],
     ];
-    for(const [symbol,key,val] of values){
+    for(const [symbol,key,val,tone] of values){
       const tile=elt('div',extras,null,'hw-tile');
-      elt('div',tile,symbol,'icon');elt('div',tile,key,'key');elt('div',tile,val,'value');
+      miBadge(tile,symbol,tone);
+      elt('div',tile,key,'key');elt('div',tile,val,'value');
     }
     if (this._config.show_sensors!==false && available && Object.keys(data.sensors||{}).length){
-      elt('div',this._hwContent,'⚙️ Chi tiết cảm biến RouterOS','hw-model');
+      const sensorTitle=elt('div',this._hwContent,null,'section-title');
+      miIcon(sensorTitle,'hardware');elt('span',sensorTitle,'Chi tiết cảm biến RouterOS');
       const sensors=elt('div',this._hwContent,null,'sensor-list');
       for(const [name,record] of Object.entries(data.sensors).slice(0,64)){
         const line=elt('div',sensors,null,'sensor-row');
@@ -307,7 +401,9 @@ class NetwatcherMikMiCard extends HTMLElement {
   }
   _gauge(parent,title,value,max,alert,unit){
     const box=elt('div',parent,null,'gauge-card');
-    elt('div',box,title,'gauge-title');
+    const gaugeHead=elt('div',box,null,'gauge-top');
+    miIcon(gaugeHead,title==='CPU'?'cpu':title==='RAM'?'ram':'thermometer','mi-icon gauge-symbol');
+    elt('div',gaugeHead,title,'gauge-title');
     const dial=elt('div',box,null,'gauge-dial');
     const valid=Number.isFinite(Number(value)) && value!==null && value!==undefined;
     const current=valid?Number(value):0;
@@ -315,6 +411,7 @@ class NetwatcherMikMiCard extends HTMLElement {
     const high=valid&&current>=threshold;
     const near=valid&&current>=threshold*0.85;
     const state=!valid?'muted':high?'danger':near?'warn':'ok';
+    gaugeHead.classList.add(`gauge-${state}`);
     const color=state==='danger'?'var(--nwm-red)':state==='warn'?'var(--nwm-amber)':state==='ok'?'var(--nwm-teal)':'var(--divider-color)';
     const deg=Math.max(0,Math.min(360,(current/max)*360));
     dial.style.background=`conic-gradient(${color} 0deg ${deg}deg,var(--divider-color) ${deg}deg 360deg)`;
@@ -332,7 +429,10 @@ class NetwatcherMikMiCard extends HTMLElement {
       `Đang đọc ${(data.probes||[]).length} phép thử RouterOS Netwatch có sẵn.`;
     for(const p of data.probes||[]){
       const row=elt('div',this._nwContent,null,'netwatch-row');
-      const left=elt('div',row),label=elt('div',left,p.comment||p.name||p.host||'Netwatch','host');
+      const left=elt('div',row);
+      const nameLine=elt('div',left,null,'model-line');
+      miBadge(nameLine,'netwatch',p.status==='up'?'green':p.status==='down'?'red':'muted');
+      const label=elt('div',nameLine,p.comment||p.name||p.host||'Netwatch','host');
       label.title=p.host||'';
       elt('div',left,`Đích: ${p.host||'—'} · RTT: ${p['rtt-avg']||'—'} · Loss: ${p['loss-percent']||'—'}`,'sub');
       const state=p.disabled==='true'?'disabled':p.status||'unknown';
@@ -354,7 +454,10 @@ class NetwatcherMikMiCard extends HTMLElement {
       const row=elt('tr',body);
       elt('td',row,item.time||'-');
       elt('td',row,item.topics||'-');
-      elt('td',row,item.category==='normal'?'info':'⚠️ '+item.category);
+      const level=elt('td',row);
+      const levelPill=elt('span',level,null,`log-level ${item.category==='normal'?'': 'warn'}`);
+      miIcon(levelPill,item.category==='normal'?'info':'warning');
+      elt('span',levelPill,item.category==='normal'?'info':item.category);
       const cell=elt('td',row,item.message||'-');
       cell.style.whiteSpace='normal';cell.style.minWidth='280px';
     }
@@ -369,10 +472,13 @@ class NetwatcherMikMiCard extends HTMLElement {
     const sources = data.source_health || {};
     this._health.textContent = `MikroTik: ${sources.mikrotik?.ok ? 'OK':'Unavailable'} | Xiaomi: ${sources.xiaomi?.ok ? 'OK':'Unavailable'}`;
     this._stats.replaceChildren();
-    [['total','Total'],['online','Online'],['offline','Offline'],['unknown','Unknown'],['dynamic','DHCP dynamic'],['unapproved','Unapproved']].forEach(([key,label]) => {
-      const box = elt('div',this._stats,null,'stat');
+    [['total','Total','devices','cyan'],['online','Online','online','green'],['offline','Offline','offline','red'],
+      ['unknown','Unknown','unknown','muted'],['dynamic','DHCP Dynamic','dynamic','amber'],
+      ['unapproved','Unapproved','unapproved','purple']].forEach(([key,label,glyph,tone]) => {
+      const box = elt('div',this._stats,null,`stat stat-${key}`);
+      const info=elt('div',box,null,'stat-caption');
+      miBadge(info,glyph,tone);elt('span',info,label);
       elt('strong',box,data.statistics[key]||0);
-      elt('span',box,label);
     });
     this._table.replaceChildren();
     const headers = ['Device','IP','State','Link',...(this._config.show_ap===false?[]:['AP / port']),...(this._config.show_dhcp===false?[]:['DHCP']),'Approved'];
@@ -381,12 +487,25 @@ class NetwatcherMikMiCard extends HTMLElement {
     const body=elt('tbody',this._table);
     for (const d of data.devices) {
       const row=elt('tr',body);
-      const name=elt('td',row,d.name||d.mac,'name'); name.title=d.mac;
+      const name=elt('td',row,null,'name');name.title=d.mac;
+      const devLine=elt('div',name,null,'device-label');
+      miIcon(devLine,d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'devices');
+      elt('span',devLine,d.name||d.mac);
       elt('td',row,d.ip||'-');
-      elt('td',row,d.online||'unknown',`pill ${d.online||''}`);
-      elt('td',row,d.connection==='wifi' ? `Wi-Fi ${d.wifi_band||''}` : (d.connection||'unknown'));
+      const stateTd=elt('td',row);
+      const statePill=elt('span',stateTd,null,`pill state-pill ${d.online||'unknown'}`);
+      miIcon(statePill,d.online==='online'?'online':d.online==='offline'?'offline':'unknown');
+      elt('span',statePill,d.online||'unknown');
+      const connTd=elt('td',row);const conn=elt('div',connTd,null,'connection-pill');
+      miIcon(conn,d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'unknown');
+      elt('span',conn,d.connection==='wifi' ? `Wi-Fi ${d.wifi_band||''}` : (d.connection||'unknown'));
       if (this._config.show_ap!==false) elt('td',row,d.ap_name||d.port||'-');
-      if (this._config.show_dhcp!==false) elt('td',row,d.dhcp_dynamic===true?'Dynamic':d.dhcp_dynamic===false?'Static':'Unmanaged',d.dhcp_dynamic?'pill dynamic':'');
+      if (this._config.show_dhcp!==false) {
+        const dhcpTd=elt('td',row);
+        const dhcpPill=elt('span',dhcpTd,null,d.dhcp_dynamic===true?'pill dynamic':'pill');
+        if(d.dhcp_dynamic===true)miIcon(dhcpPill,'dynamic');
+        elt('span',dhcpPill,d.dhcp_dynamic===true?'D · Dynamic':d.dhcp_dynamic===false?'Static':'Unmanaged');
+      }
       const td=elt('td',row);
       const approve=elt('button',td,d.approved?'Approved':'Approve','approve');
       approve.title = d.approved ? 'Unapprove device locally' : 'Mark device as approved locally (does not change MikroTik)';
@@ -420,11 +539,18 @@ input,select{padding:8px;border:1px solid var(--divider-color);border-radius:7px
       ['page_size','Page size (5-100)','number'],
       ['default_view','Default tab','select'],
       ['show_hardware','Show Router Health','checkbox'],['show_netwatch','Show Netwatch','checkbox'],['show_traffic','Show WAN RX/TX throughput','checkbox'],['show_sensors','Show detailed RouterOS health sensors','checkbox'],
+      ['show_brand','Show integration brand icon','checkbox'],['icon_style','Icon appearance','select_icons'],
       ['show_search','Show search','checkbox'],['show_ap','Show AP / port','checkbox'],['show_dhcp','Show DHCP','checkbox'],['show_logs','Show MikroTik log viewer (admins only)','checkbox'],
     ];
     fields.forEach(([key,label,type])=>{
       const holder=elt('label',root,label),input=elt('input',holder);input.type=type;
       if(type==='checkbox')input.checked=this._config[key]!==false;
+      else if(type==='select_icons'){
+        [['cyber','Cyber gradient'],['mono','Minimal / monochrome']].forEach(([v,l])=>{
+          const opt=elt('option',input,l);opt.value=v;
+        });
+        input.value=this._config[key]==='mono'?'mono':'cyber';
+      }
       else if(type==='select'){
         ['hardware','devices','netwatch','logs'].forEach(value=>{
           const option=elt('option',input,value==='hardware'?'Router Health':value==='devices'?'Thiết bị':value==='netwatch'?'Netwatch':'MikroTik Logs');
@@ -443,4 +569,4 @@ input,select{padding:8px;border:1px solid var(--divider-color);border-radius:7px
 if(!customElements.get(CARD_TAG))customElements.define(CARD_TAG,NetwatcherMikMiCard);
 if(!customElements.get('netwatcher-mikmi-card-editor'))customElements.define('netwatcher-mikmi-card-editor',NetwatcherMikMiCardEditor);
 window.customCards=window.customCards||[];
-if(!window.customCards.some(c=>c.type===CARD_TAG))window.customCards.push({type:CARD_TAG,name:'Netwatcher MikMi',description:'MikroTik hardware gauges, DHCP/Wi-Fi inventory, Netwatch, WAN log and Zalo Bot alerts',preview:false,configurable:true});
+if(!window.customCards.some(c=>c.type===CARD_TAG))window.customCards.push({type:CARD_TAG,name:'Netwatcher MikMi',icon:'mdi:shield-home',description:'MikroTik hardware gauges, DHCP/Wi-Fi inventory, Netwatch, WAN log and Zalo Bot alerts',preview:false,configurable:true});
