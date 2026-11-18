@@ -65,3 +65,20 @@ NETWATCHER MIKMI — TIN MINH HỌA; DỮ LIỆU GIẢ, KHÔNG PHẢI LOG THẬT
 ℹ️ Đây là cảnh báo từ log, KHÔNG phải kết luận router đã bị xâm nhập.
 🔒 Kiểm tra firewall input, nhật ký đăng nhập và VPN quản trị.
 🏠 Netwatcher MikMi | Network Security
+
+--- Netwatcher MikMi v0.4 Hardware (Zalo Bot ca nhan, du lieu minh hoa) ---
+🛡️ NETWATCHER MIKMI | MIKROTIK HEALTH
+━━━━━━━━━━━━━━━━━━━━━━
+🚨 VƯỢT NGƯỠNG CẢNH BÁO
+
+🧩 Thiết bị: CCR2004-16G-2S+
+📊 Chỉ số: Nhiệt độ
+📈 Giá trị: 83°C
+🎯 Ngưỡng đã đặt: 75°C
+🕒 Thời gian: 18/11/2026 13:21
+
+⚠️ Đã xác nhận qua nhiều lần đo. Kiểm tra tải RouterOS, nhiệt độ thiết bị, thông gió và nguồn điện.
+🏠 Netwatcher MikMi · Router Hardware
+
+--- Khoi phuc ---
+🟢 ĐÃ HẠ VỀ MỨC AN TOÀN

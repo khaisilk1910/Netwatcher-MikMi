@@ -1,7 +1,9 @@
-"""Aggregate inventory and router health sensors; no huge state attributes."""
+"""Compact HA sensors. No client lists or router log payloads in Recorder."""
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from dataclasses import dataclass
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
@@ -19,15 +21,54 @@ METRICS = (
     ("unapproved", "Unapproved devices"),
 )
 
+
+@dataclass(frozen=True)
+class HealthField:
+    key: str
+    name: str
+    source: str
+    unit: str | None = None
+    icon: str | None = None
+    device_class: SensorDeviceClass | None = None
+    numeric: bool = True
+
+
+HARDWARE_FIELDS: tuple[HealthField, ...] = (
+    # Keep `router_cpu` unique ID stable across v0.3 → v0.4 upgrades.
+    HealthField("router_cpu", "MikroTik CPU load", "cpu", "%", "mdi:cpu-64-bit"),
+    HealthField("router_ram", "MikroTik RAM usage", "ram", "%", "mdi:memory"),
+    HealthField("router_temperature", "MikroTik temperature", "temperature", "°C", "mdi:thermometer", SensorDeviceClass.TEMPERATURE),
+    HealthField("router_cpu_temperature", "MikroTik CPU temperature", "cpu_temperature", "°C", "mdi:thermometer", SensorDeviceClass.TEMPERATURE),
+    HealthField("router_board_temperature", "MikroTik board temperature", "board_temperature", "°C", "mdi:thermometer", SensorDeviceClass.TEMPERATURE),
+    HealthField("router_storage", "MikroTik storage usage", "storage", "%", "mdi:harddisk"),
+    HealthField("router_voltage", "MikroTik voltage", "voltage", "V", "mdi:flash", SensorDeviceClass.VOLTAGE),
+    HealthField("router_fan_rpm", "MikroTik fan speed", "fan_rpm", "rpm", "mdi:fan"),
+    HealthField("router_total_ram", "MikroTik total RAM", "total_ram_mib", "MiB", "mdi:memory"),
+    HealthField("router_free_ram", "MikroTik free RAM", "free_ram_mib", "MiB", "mdi:memory"),
+    HealthField("router_cpu_count", "MikroTik CPU count", "cpu_count", None, "mdi:cpu-64-bit"),
+    HealthField("router_cpu_frequency", "MikroTik CPU frequency", "cpu_frequency_mhz", "MHz", "mdi:speedometer"),
+    HealthField("router_uptime", "MikroTik uptime", "uptime_seconds", "s", "mdi:clock-outline"),
+    HealthField("router_model", "MikroTik model", "model", None, "mdi:router-wireless", numeric=False),
+    HealthField("router_routeros", "MikroTik RouterOS version", "routeros_version", None, "mdi:information", numeric=False),
+    HealthField("router_firmware", "MikroTik RouterBOARD firmware", "firmware", None, "mdi:chip", numeric=False),
+)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator = entry.runtime_data.coordinator
-    async_add_entities([InventorySensor(coordinator, entry, key, name) for key, name in METRICS] +
-                       [SourceSensor(coordinator, entry, key) for key in ("mikrotik", "xiaomi", "router_logs")] +
-                       [CpuSensor(coordinator, entry)])
+    runtime = entry.runtime_data
+    coordinator = runtime.coordinator
+    hardware = runtime.hardware
+    entities = [InventorySensor(coordinator, entry, key, name) for key, name in METRICS]
+    entities.extend(SourceSensor(coordinator, entry, key) for key in ("mikrotik", "xiaomi", "router_logs", "netwatch"))
+    entities.extend(HardwareSensor(hardware, entry, field) for field in HARDWARE_FIELDS)
+    entities.append(NetwatchDownSensor(coordinator, entry))
+    entities.extend(WanTrafficSensor(coordinator, entry, direction) for direction in ("rx_bps", "tx_bps"))
+    async_add_entities(entities)
 
 
 class MikMiEntity(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
+
     def __init__(self, coordinator, entry: ConfigEntry, key: str, name: str) -> None:
         super().__init__(coordinator)
         self._key = key
@@ -38,9 +79,7 @@ class MikMiEntity(CoordinatorEntity, SensorEntity):
 
 class InventorySensor(MikMiEntity):
     _attr_native_unit_of_measurement = "devices"
-    _attr_state_class = "measurement"
-    def __init__(self, coordinator, entry, key, name):
-        super().__init__(coordinator, entry, key, name)
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def native_value(self):
@@ -48,7 +87,7 @@ class InventorySensor(MikMiEntity):
 
     @property
     def available(self):
-        return True  # Historical/unknown inventory still available when source fails.
+        return True  # Historical inventory remains available when source fails.
 
 
 class SourceSensor(MikMiEntity):
@@ -75,20 +114,75 @@ class SourceSensor(MikMiEntity):
         return True
 
 
-class CpuSensor(MikMiEntity):
-    _attr_native_unit_of_measurement = "%"
-    _attr_state_class = "measurement"
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "router_cpu", "MikroTik CPU load")
+class HardwareSensor(MikMiEntity):
+    def __init__(self, coordinator, entry: ConfigEntry, field: HealthField) -> None:
+        super().__init__(coordinator, entry, field.key, field.name)
+        self._field = field
+        self._attr_icon = field.icon
+        self._attr_native_unit_of_measurement = field.unit
+        if field.numeric:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        if field.device_class:
+            self._attr_device_class = field.device_class
 
     @property
     def native_value(self):
-        resource = (self.coordinator.data or {}).get("router", {}).get("resource") or {}
-        try:
-            return int(resource["cpu-load"])
-        except (KeyError, ValueError, TypeError):
-            return None
+        data = self.coordinator.data or {}
+        section = "board" if not self._field.numeric else "readings"
+        return data.get(section, {}).get(self._field.source)
 
     @property
     def available(self):
-        return self.coordinator.source_health["mikrotik"]["ok"]
+        return bool(self.coordinator.last_update_success and self.native_value is not None and self.native_value != "")
+
+    @property
+    def extra_state_attributes(self):
+        data = self.coordinator.data or {}
+        if self._field.source in ("cpu", "ram", "temperature"):
+            return {"alert": data.get("alerts", {}).get(self._field.source, {}),
+                    "sampled_at": data.get("sampled_at")}
+        return {}
+
+
+class NetwatchDownSensor(MikMiEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "probes"
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "netwatch_down", "MikroTik Netwatch probes down")
+        self._attr_icon = "mdi:lan-disconnect"
+
+    @property
+    def native_value(self):
+        return sum(row.get("status", "").lower() == "down" and row.get("disabled", "false").lower() != "true"
+                   for row in self.coordinator.netwatch_rows)
+
+    @property
+    def available(self):
+        return self.coordinator.source_health["netwatch"]["ok"]
+
+
+class WanTrafficSensor(MikMiEntity):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "bit/s"
+
+    def __init__(self, coordinator, entry: ConfigEntry, direction: str) -> None:
+        super().__init__(coordinator, entry, f"router_wan_{direction}",
+                         "MikroTik WAN RX" if direction == "rx_bps" else "MikroTik WAN TX")
+        self._direction = direction
+        self._attr_icon = "mdi:download-network" if direction == "rx_bps" else "mdi:upload-network"
+
+    @property
+    def native_value(self):
+        return self.coordinator.wan_traffic.get(self._direction)
+
+    @property
+    def available(self):
+        return bool(self.coordinator.source_health["mikrotik"]["ok"]
+                    and self.coordinator.wan_traffic.get("name")
+                    and self.native_value is not None)
+
+    @property
+    def extra_state_attributes(self):
+        return {"interface": self.coordinator.wan_traffic.get("name"),
+                "running": self.coordinator.wan_traffic.get("running")}

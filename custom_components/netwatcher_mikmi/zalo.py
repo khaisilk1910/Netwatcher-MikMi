@@ -222,6 +222,46 @@ class ZaloNotifier:
                      kind, result['submitted'], result['failed'])
         return result
 
+    async def send_hardware_alert(self, incident: dict[str, Any]) -> dict[str, int | bool]:
+        """Post only a small sanitized alert through the installed personal Zalo Bot.
+
+        Does not require OA, REST API, RouterOS write permissions, or outbound
+        connections from the router. Sending is opt-in in the integration UI.
+        """
+        if not self.enabled:
+            return {"submitted": 0, "failed": 0, "rate_limited": 0}
+        metric = str(incident.get("metric") or "")
+        if metric not in ("cpu", "ram", "temperature"):
+            return {"submitted": 0, "failed": 0, "rate_limited": 0}
+        recovered = incident.get("kind") == "recovered"
+        if incident.get("kind") not in ("high", "recovered"):
+            return {"submitted": 0, "failed": 0, "rate_limited": 0}
+        from .hardware import METRIC_NAMES
+        unit = "°C" if metric == "temperature" else "%"
+        value = float(incident["value"])
+        limit = float(incident["threshold"])
+        status = "🟢 ĐÃ HẠ VỀ MỨC AN TOÀN" if recovered else "🚨 VƯỢT NGƯỠNG CẢNH BÁO"
+        msg = "\n".join([
+            "🛡️ NETWATCHER MIKMI | MIKROTIK HEALTH",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            status,
+            "",
+            f"🧩 Thiết bị: {_single_line(incident.get('model') or 'MikroTik', 65)}",
+            f"📊 Chỉ số: {METRIC_NAMES[metric]}",
+            f"📈 Giá trị: {value:g}{unit}",
+            f"🎯 Ngưỡng đã đặt: {limit:g}{unit}",
+            f"🕒 Thời gian: {dt_util.now().strftime('%d/%m/%Y %H:%M:%S')}",
+            "",
+            "✅ Tiếp tục theo dõi." if recovered else
+                "⚠️ Đã xác nhận qua nhiều lần đo. Kiểm tra tải RouterOS, nhiệt độ thiết bị, thông gió và nguồn điện.",
+            "ℹ️ Chỉ số do RouterOS báo cáo; không phải phép đo độc lập.",
+            "🏠 Netwatcher MikMi · Router Hardware",
+        ])[:1500]
+        result = await self._send_text(msg)
+        _LOGGER.info("Personal Zalo hardware event %s/%s: submitted=%d failed=%d",
+                     metric, "recovered" if recovered else "high", result["submitted"], result["failed"])
+        return result
+
     async def send_test(self) -> dict[str, int | bool]:
         if not self.enabled:
             return {"submitted": 0, "failed": 0, "rate_limited": 0, "disabled": True}

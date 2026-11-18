@@ -77,7 +77,23 @@
           "notify_wan_security": "Enable WAN security alerts (HA event + local persistent notification)",
           "zalo_notify_wan_security": "Send WAN alerts through Zalo Bot (requires Zalo and WAN alert options)",
           "login_failures_threshold": "Management login failure count per public IP in 5 minutes (2–50)",
-          "wan_firewall_threshold": "NWMIKMI-WAN firewall log count per public source IP in 5 minutes (3–100)"
+          "wan_firewall_threshold": "NWMIKMI-WAN firewall log count per public source IP in 5 minutes (3–100)",
+          "hardware_poll_interval": "CPU and RAM poll interval (seconds, 10–300)",
+          "health_detail_poll_interval": "Temperature/fan/voltage poll interval (seconds, 30–600)",
+          "hardware_alerts_enabled": "🛡️ Enable MikroTik hardware threshold alerts",
+          "hardware_cpu_alert_enabled": "🔥 Enable CPU threshold alerts",
+          "hardware_ram_alert_enabled": "🧠 Enable RAM threshold alerts",
+          "hardware_temperature_alert_enabled": "🌡️ Enable temperature threshold alerts (if supported)",
+          "hardware_cpu_threshold": "CPU alert threshold (%)",
+          "hardware_ram_threshold": "RAM usage alert threshold (%)",
+          "hardware_temperature_threshold": "Temperature alert threshold (°C)",
+          "hardware_confirm_samples": "Consecutive high samples required (1–10)",
+          "hardware_cooldown_minutes": "Hardware alert cooldown (minutes)",
+          "hardware_notify_recovery": "✅ Notify when hardware returns to normal",
+          "hardware_notify_zalo": "💬 Send hardware alerts via configured Zalo Bot",
+          "netwatch_read_enabled": "📡 Read existing RouterOS Netwatch probes (read only)",
+          "netwatch_poll_interval": "Netwatch poll interval (seconds, 60–600)",
+          "router_wan_interface": "PPPoE/WAN interface name (blank = auto-detect)"
         }
       }
     },
@@ -87,7 +103,10 @@
       "missing_zalo_recipients": "Enter at least one user/group thread ID.",
       "invalid_zalo_account": "Sender must be a phone number (+84...) or numeric Own ID.",
       "wan_zalo_requires_alerts": "Enable WAN alerts before enabling WAN Zalo delivery.",
-      "wan_alerts_require_logs": "Enable MikroTik log reading to detect WAN events."
+      "wan_alerts_require_logs": "Enable MikroTik log reading to detect WAN events.",
+      "hardware_zalo_requires_bot": "Enable Zalo Bot before hardware alerts can use it",
+      "hardware_zalo_requires_alerts": "Enable hardware threshold alerts first",
+      "health_interval_too_short": "Detailed sensor interval must not be faster than CPU/RAM"
     }
   }
 }

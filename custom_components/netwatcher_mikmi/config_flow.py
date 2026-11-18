@@ -20,6 +20,14 @@ from .const import (
     CONF_ZALO_INCLUDE_MAC,
     CONF_LOG_ENABLED, CONF_LOG_INTERVAL, CONF_WAN_ALERTS, CONF_ZALO_NOTIFY_WAN,
     CONF_LOGIN_FAIL_THRESHOLD, CONF_FIREWALL_THRESHOLD, DEFAULT_LOG_INTERVAL,
+    CONF_HARDWARE_INTERVAL, CONF_HEALTH_DETAIL_INTERVAL,
+    CONF_HARDWARE_ALERTS, CONF_HARDWARE_CPU_ENABLED, CONF_HARDWARE_RAM_ENABLED,
+    CONF_HARDWARE_TEMP_ENABLED, CONF_HARDWARE_CPU_THRESHOLD,
+    CONF_HARDWARE_RAM_THRESHOLD, CONF_HARDWARE_TEMP_THRESHOLD,
+    CONF_HARDWARE_SAMPLES, CONF_HARDWARE_RECOVERY, CONF_HARDWARE_ZALO,
+    CONF_HARDWARE_COOLDOWN, DEFAULT_HARDWARE_INTERVAL,
+    DEFAULT_HEALTH_DETAIL_INTERVAL, CONF_NETWATCH_ENABLED,
+    CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL, CONF_WAN_INTERFACE,
 )
 from .routeros import RouterAuthError, RouterCertificateError, RouterOSReader
 from .security import fingerprint_sha256, parse_hosts, port_names, private_ipv4, parse_recipients
@@ -158,6 +166,13 @@ class NetwatcherMikMiOptionsFlow(config_entries.OptionsFlow):
             if (user_input.get(CONF_WAN_ALERTS, False)
                     and not user_input.get(CONF_LOG_ENABLED, True)):
                 errors["base"] = "wan_alerts_require_logs"
+            if user_input.get(CONF_HARDWARE_ZALO, False) and not user_input.get(CONF_ZALO_BOT_ENABLED, False):
+                errors["base"] = "hardware_zalo_requires_bot"
+            if user_input.get(CONF_HARDWARE_ZALO, False) and not user_input.get(CONF_HARDWARE_ALERTS, False):
+                errors["base"] = "hardware_zalo_requires_alerts"
+            if (int(user_input.get(CONF_HEALTH_DETAIL_INTERVAL, DEFAULT_HEALTH_DETAIL_INTERVAL))
+                    < int(user_input.get(CONF_HARDWARE_INTERVAL, DEFAULT_HARDWARE_INTERVAL))):
+                errors["base"] = "health_interval_too_short"
             if not errors:
                 # Only fields in the new schema are saved: old OA tokens are
                 # dropped from this config entry on the first Options save.
@@ -165,7 +180,23 @@ class NetwatcherMikMiOptionsFlow(config_entries.OptionsFlow):
         opts = self.config_entry.options
         schema = vol.Schema({
             vol.Required(CONF_POLL_INTERVAL, default=opts.get(CONF_POLL_INTERVAL, DEFAULT_POLL)): vol.All(vol.Coerce(int), vol.Range(min=15, max=600)),
+            vol.Optional(CONF_WAN_INTERFACE, default=opts.get(CONF_WAN_INTERFACE, "")): str,
             vol.Required(CONF_OFFLINE_AFTER, default=opts.get(CONF_OFFLINE_AFTER, DEFAULT_OFFLINE)): vol.All(vol.Coerce(int), vol.Range(min=60, max=3600)),
+            vol.Required(CONF_HARDWARE_INTERVAL, default=opts.get(CONF_HARDWARE_INTERVAL, DEFAULT_HARDWARE_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+            vol.Required(CONF_HEALTH_DETAIL_INTERVAL, default=opts.get(CONF_HEALTH_DETAIL_INTERVAL, DEFAULT_HEALTH_DETAIL_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=30, max=600)),
+            vol.Required(CONF_HARDWARE_ALERTS, default=opts.get(CONF_HARDWARE_ALERTS, False)): bool,
+            vol.Required(CONF_HARDWARE_CPU_ENABLED, default=opts.get(CONF_HARDWARE_CPU_ENABLED, True)): bool,
+            vol.Required(CONF_HARDWARE_RAM_ENABLED, default=opts.get(CONF_HARDWARE_RAM_ENABLED, True)): bool,
+            vol.Required(CONF_HARDWARE_TEMP_ENABLED, default=opts.get(CONF_HARDWARE_TEMP_ENABLED, True)): bool,
+            vol.Required(CONF_HARDWARE_CPU_THRESHOLD, default=opts.get(CONF_HARDWARE_CPU_THRESHOLD, 85)): vol.All(vol.Coerce(int), vol.Range(min=30, max=100)),
+            vol.Required(CONF_HARDWARE_RAM_THRESHOLD, default=opts.get(CONF_HARDWARE_RAM_THRESHOLD, 90)): vol.All(vol.Coerce(int), vol.Range(min=30, max=100)),
+            vol.Required(CONF_HARDWARE_TEMP_THRESHOLD, default=opts.get(CONF_HARDWARE_TEMP_THRESHOLD, 75)): vol.All(vol.Coerce(int), vol.Range(min=30, max=120)),
+            vol.Required(CONF_HARDWARE_SAMPLES, default=opts.get(CONF_HARDWARE_SAMPLES, 3)): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
+            vol.Required(CONF_HARDWARE_COOLDOWN, default=opts.get(CONF_HARDWARE_COOLDOWN, 30)): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
+            vol.Required(CONF_HARDWARE_RECOVERY, default=opts.get(CONF_HARDWARE_RECOVERY, True)): bool,
+            vol.Required(CONF_HARDWARE_ZALO, default=opts.get(CONF_HARDWARE_ZALO, False)): bool,
+            vol.Required(CONF_NETWATCH_ENABLED, default=opts.get(CONF_NETWATCH_ENABLED, False)): bool,
+            vol.Required(CONF_NETWATCH_INTERVAL, default=opts.get(CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=60, max=600)),
             vol.Required(CONF_NOTIFY_EXISTING, default=opts.get(CONF_NOTIFY_EXISTING, False)): bool,
             vol.Required(CONF_NOTIFY_PERSISTENT, default=opts.get(CONF_NOTIFY_PERSISTENT, True)): bool,
             vol.Required(CONF_TRACKERS, default=opts.get(CONF_TRACKERS, False)): bool,

@@ -21,7 +21,6 @@ COMMANDS = {
     "leases": ("/ip/dhcp-server/lease/print", "mac-address,address,active-address,active-mac-address,host-name,comment,dynamic,status,disabled,server,last-seen"),
     "arp": ("/ip/arp/print", "mac-address,address,interface,complete,disabled"),
     "bridge_hosts": ("/interface/bridge/host/print", "mac-address,on-interface,bridge,local,age"),
-    "resource": ("/system/resource/print", "cpu-load,free-memory,total-memory,uptime,version,board-name"),
     "interfaces": ("/interface/print", "name,running,disabled,rx-byte,tx-byte,type"),
 }
 
@@ -99,16 +98,20 @@ class RouterOSReader:
     def _command(cls, conn: ssl.SSLSocket, words: list[str], auth: bool = False) -> list[dict[str, str]]:
         conn.sendall(b"".join(_encode_length(len(s.encode("utf-8"))) + s.encode("utf-8") for s in words) + b"\0")
         rows: list[dict[str, str]] = []
-        while True:
+        trapped = False
+        for _ in range(MAX_ROWS + 16):
             response = cls._sentence(conn)
             if not response:
                 continue
             kind = response[0]
-            if kind in ("!trap", "!fatal"):
-                if auth:
-                    raise RouterAuthError("RouterOS login rejected")
-                raise RouterError("RouterOS rejected a read-only command")
+            if kind == "!fatal":
+                raise RouterAuthError("RouterOS login rejected") if auth else RouterError("RouterOS read failed")
+            if kind == "!trap":
+                trapped = True
+                continue  # Always drain !done before sending another command.
             if kind == "!done":
+                if trapped:
+                    raise RouterAuthError("RouterOS login rejected") if auth else RouterError("RouterOS read command rejected")
                 return rows
             if kind == "!re":
                 row: dict[str, str] = {}
@@ -120,12 +123,17 @@ class RouterOSReader:
                 rows.append(row)
                 if len(rows) > MAX_ROWS:
                     raise RouterError("RouterOS reply exceeds row limit")
+        raise RouterError("RouterOS response exceeded sentence limit")
 
-    def fetch(self) -> dict[str, list[dict[str, str]]]:
-        """Fetch an atomic RouterOS snapshot; no mutations, no unpinned TLS."""
+    def _connect_and_read(self, commands: dict[str, tuple[str, str, bool]]) -> dict[str, Any]:
+        """A single authenticated, pinned TLS session per bounded batch.
+
+        `optional` commands may not exist on CHR or older boards. Every optional
+        trap is drained, without hiding failures of /system/resource.
+        """
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE  # Explicit cert pin is the trust anchor.
+        ctx.verify_mode = ssl.CERT_NONE  # SHA-256 pin is checked before password.
         try:
             with socket.create_connection((self.host, self.port), timeout=SOCKET_TIMEOUT) as raw:
                 with ctx.wrap_socket(raw, server_hostname=None) as conn:
@@ -135,30 +143,52 @@ class RouterOSReader:
                         raise RouterCertificateError("RouterOS certificate fingerprint mismatch")
                     self._command(conn, ["/login", f"=name={self.username}", f"=password={self.password}"], auth=True)
                     result = {}
-                    for key, (command, columns) in COMMANDS.items():
-                        result[key] = self._command(conn, [command, f"=.proplist={columns}"])
+                    for key, (command, columns, optional) in commands.items():
+                        try:
+                            result[key] = self._command(conn, [command] + ([f"=.proplist={columns}"] if columns else []))
+                        except RouterError:
+                            if not optional:
+                                raise
+                            result[key] = []
                     return result
         except (socket.timeout, OSError, ssl.SSLError) as exc:
             raise RouterError("RouterOS API-SSL connection failed") from exc
 
-    def fetch_logs(self) -> list[dict[str, str]]:
-        """Fetch /log memory read-only using an independently pinned TLS session.
+    def fetch_hardware(self, include_sensors: bool = True, include_board: bool = False) -> dict[str, Any]:
+        """Read hardware without writes; fast resource + optional slower sensors.
 
-        This method must ONLY run in hass.async_add_executor_job.  Returning
-        the newest 1500 rows avoids retaining huge log buffers in memory.
+        All values are untrusted strings until normalized by hardware.py.
         """
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE  # SHA256 pin verified before credentials.
-        try:
-            with socket.create_connection((self.host, self.port), timeout=SOCKET_TIMEOUT) as raw:
-                with ctx.wrap_socket(raw, server_hostname=None) as conn:
-                    conn.settimeout(SOCKET_TIMEOUT)
-                    der = conn.getpeercert(binary_form=True)
-                    if not der or not hmac.compare_digest(hashlib.sha256(der).hexdigest(), self.fingerprint):
-                        raise RouterCertificateError("RouterOS certificate fingerprint mismatch")
-                    self._command(conn, ["/login", f"=name={self.username}", f"=password={self.password}"], auth=True)
-                    rows = self._command(conn, ["/log/print", "=.proplist=.id,time,topics,message"])
-                    return rows[-1500:]
-        except (socket.timeout, OSError, ssl.SSLError) as exc:
-            raise RouterError("RouterOS log read failed") from exc
+        commands = {
+            "resource": ("/system/resource/print",
+                         "cpu-load,free-memory,total-memory,free-hdd-space,total-hdd-space,"
+                         "uptime,version,board-name,cpu,cpu-count,cpu-frequency,"
+                         "architecture-name,platform,bad-blocks", False),
+        }
+        if include_sensors:
+            commands["health"] = ("/system/health/print", "", True)
+        if include_board:
+            commands["routerboard"] = ("/system/routerboard/print", "model,factory-firmware,current-firmware,upgrade-firmware,routerboard", True)
+        return self._connect_and_read(commands)
+
+    def fetch_netwatch(self) -> list[dict[str, str]]:
+        """Read existing RouterOS Netwatch probes (never add probes/scripts)."""
+        rows = self._connect_and_read({
+            "netwatch": ("/tool/netwatch/print", "host,name,comment,status,type,disabled,"
+                         "rtt-avg,rtt-min,rtt-max,rtt-jitter,loss-percent,since", False),
+        })["netwatch"]
+        return rows[:500]
+
+    def fetch(self) -> dict[str, list[dict[str, str]]]:
+        """Fetch inventory only; hardware and RouterOS logs run independently."""
+        return self._connect_and_read({
+            key: (command, columns, False)
+            for key, (command, columns) in COMMANDS.items()
+        })
+
+    def fetch_logs(self) -> list[dict[str, str]]:
+        """Memory log read only; HTTPS certificate pinned before credentials."""
+        result = self._connect_and_read({
+            "logs": ("/log/print", ".id,time,topics,message", False),
+        })
+        return result["logs"][-1500:]

@@ -118,3 +118,18 @@ def test_wan_alert_uses_existing_zalo_bot_action_without_oa():
         assert '8.8.8.8' in payload['message']
         assert 'access_token' not in payload
     asyncio.run(main())
+
+def test_hardware_alert_uses_zalo_bot_for_user_and_group():
+    async def run():
+        hass = Hass()
+        bot = zalo.ZaloNotifier(hass, settings())
+        event = {'metric':'temperature','kind':'high','value':86,'threshold':75,'model':'hAP ax3'}
+        result=await bot.send_hardware_alert(event)
+        assert result['submitted']==3
+        args=hass.services.async_call.call_args_list
+        assert all(call.args[:2]==('zalo_bot','send_message') for call in args)
+        assert '86°C' in args[0].args[2]['message']
+        assert 'hAP ax3' in args[0].args[2]['message']
+        assert 'NGƯỠNG' in args[0].args[2]['message']
+        assert (await bot.send_hardware_alert(dict(event,metric='invalid')))['submitted']==0
+    asyncio.run(run())

@@ -77,7 +77,23 @@
           "notify_wan_security": "Bật phát hiện & cảnh báo truy cập WAN đáng ngờ (HA event + thông báo nội bộ)",
           "zalo_notify_wan_security": "Gửi cảnh báo WAN bằng Zalo Bot (cần bật cả Zalo và cảnh báo WAN)",
           "login_failures_threshold": "Ngưỡng đăng nhập quản trị sai từ cùng IP công cộng trong 5 phút (2–50)",
-          "wan_firewall_threshold": "Ngưỡng log NWMIKMI-WAN cùng IP nguồn trong 5 phút (3–100)"
+          "wan_firewall_threshold": "Ngưỡng log NWMIKMI-WAN cùng IP nguồn trong 5 phút (3–100)",
+          "hardware_poll_interval": "Chu kỳ CPU/RAM (giây, 10–300)",
+          "health_detail_poll_interval": "Chu kỳ cảm biến nhiệt độ/quạt/điện áp (giây, 30–600)",
+          "hardware_alerts_enabled": "🛡️ Bật cảnh báo phần cứng MikroTik",
+          "hardware_cpu_alert_enabled": "🔥 Bật cảnh báo CPU vượt ngưỡng",
+          "hardware_ram_alert_enabled": "🧠 Bật cảnh báo RAM vượt ngưỡng",
+          "hardware_temperature_alert_enabled": "🌡️ Bật cảnh báo nhiệt độ vượt ngưỡng (nếu có cảm biến)",
+          "hardware_cpu_threshold": "Ngưỡng CPU (%)",
+          "hardware_ram_threshold": "Ngưỡng RAM sử dụng (%)",
+          "hardware_temperature_threshold": "Ngưỡng nhiệt độ (°C)",
+          "hardware_confirm_samples": "Số mẫu liên tiếp xác nhận vượt ngưỡng (1–10)",
+          "hardware_cooldown_minutes": "Thời gian chống lặp cảnh báo phần cứng (phút)",
+          "hardware_notify_recovery": "✅ Thông báo khi CPU/RAM/nhiệt độ đã hạ",
+          "hardware_notify_zalo": "💬 Gửi cảnh báo phần cứng qua Zalo Bot đã cấu hình",
+          "netwatch_read_enabled": "📡 Đọc trạng thái RouterOS Netwatch có sẵn (chỉ đọc)",
+          "netwatch_poll_interval": "Chu kỳ Netwatch (giây, 60–600)",
+          "router_wan_interface": "Tên PPPoE/WAN interface (để trống = tự phát hiện)"
         }
       }
     },
@@ -87,7 +103,10 @@
       "missing_zalo_recipients": "Cần ít nhất một Thread ID cá nhân hoặc nhóm.",
       "invalid_zalo_account": "Tài khoản gửi phải là số điện thoại (+84...) hoặc OwnID dạng số.",
       "wan_zalo_requires_alerts": "Bật cảnh báo WAN trước khi gửi qua Zalo.",
-      "wan_alerts_require_logs": "Bật đọc log MikroTik để có dữ liệu phát hiện."
+      "wan_alerts_require_logs": "Bật đọc log MikroTik để có dữ liệu phát hiện.",
+      "hardware_zalo_requires_bot": "Bật Zalo Bot trước khi gửi cảnh báo phần cứng",
+      "hardware_zalo_requires_alerts": "Bật cảnh báo phần cứng trước",
+      "health_interval_too_short": "Chu kỳ cảm biến phụ phải không nhỏ hơn chu kỳ CPU/RAM"
     }
   }
 }

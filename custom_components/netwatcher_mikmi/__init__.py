@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 import logging
 from typing import Any
 
@@ -10,9 +11,12 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback, CoreState, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_track_time_interval
 
-from .const import DOMAIN
+from .const import (DOMAIN, CONF_LOG_ENABLED, CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL,
+                    CONF_NETWATCH_ENABLED, CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)
 from .coordinator import MikMiCoordinator
+from .hardware_coordinator import MikMiHardwareCoordinator
 from .frontend import register_card
 from .inventory import Inventory
 from .log_monitor import RouterLogMonitor
@@ -26,6 +30,8 @@ class RuntimeData:
     coordinator: MikMiCoordinator
     store: Store
     log_store: Store
+    hardware: MikMiHardwareCoordinator
+    hardware_store: Store
 
 
 @websocket_api.websocket_command({
@@ -127,12 +133,70 @@ def ws_router_logs(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         "baselined": monitor.baselined,
     })
 
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/router_hardware",
+    vol.Optional("entry_id", default=""): str,
+})
+@callback
+def ws_router_hardware(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Admin-only hardware snapshot; no serial, password, MAC, or target IP."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Admin access required")
+        return
+    entries = hass.data.get(DOMAIN, {})
+    runtime = entries.get(msg["entry_id"]) if msg["entry_id"] else next(iter(entries.values()), None)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_found", "Netwatcher entry not found")
+        return
+    hardware = runtime.hardware
+    data = hardware.data or {}
+    connection.send_result(msg["id"], {
+        "entry_id": hardware.entry.entry_id,
+        "available": bool(hardware.last_update_success and data),
+        "source_error": hardware.source_error,
+        "last_success": hardware.last_success,
+        "readings": data.get("readings", {}),
+        "board": data.get("board", {}),
+        "sensors": data.get("sensors", {}),
+        "alerts": data.get("alerts", {}),
+        "poll_intervals": data.get("poll_intervals", {}),
+        "wan_traffic": runtime.coordinator.wan_traffic,
+    })
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/router_netwatch",
+    vol.Optional("entry_id", default=""): str,
+})
+@callback
+def ws_router_netwatch(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Admin-only: existing Netwatch probe states; no Netwatch modification."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Admin access required")
+        return
+    entries = hass.data.get(DOMAIN, {})
+    runtime = entries.get(msg["entry_id"]) if msg["entry_id"] else next(iter(entries.values()), None)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_found", "Netwatcher entry not found")
+        return
+    source = runtime.coordinator.source_health["netwatch"]
+    connection.send_result(msg["id"], {
+        "entry_id": runtime.coordinator.entry.entry_id,
+        "enabled": source["error"] != "disabled",
+        "available": source["ok"],
+        "probes": runtime.coordinator.netwatch_rows,
+        "last_success": source["last_success"],
+    })
+
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     hass.data.setdefault(DOMAIN, {})
     websocket_api.async_register_command(hass, ws_inventory)
     websocket_api.async_register_command(hass, ws_approve)
     websocket_api.async_register_command(hass, ws_test_zalo)
     websocket_api.async_register_command(hass, ws_router_logs)
+    websocket_api.async_register_command(hass, ws_router_hardware)
+    websocket_api.async_register_command(hass, ws_router_netwatch)
 
     async def setup_frontend(_event=None):
         try:
@@ -164,13 +228,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     previous_logs = await log_store.async_load()
     log_monitor = RouterLogMonitor(previous_logs)
     coord = MikMiCoordinator(hass, entry, inventory, store, log_monitor, log_store)
-    runtime = RuntimeData(coordinator=coord, store=store, log_store=log_store)
+    hardware_store = Store(hass, 1, f"{DOMAIN}_hardware_{entry.entry_id}")
+    previous_hardware = await hardware_store.async_load()
+    hardware = MikMiHardwareCoordinator(
+        hass, entry, coord._router, hardware_store, previous_hardware, coord.zalo
+    )
+    runtime = RuntimeData(coordinator=coord, store=store, log_store=log_store,
+                          hardware=hardware, hardware_store=hardware_store)
     entry.runtime_data = runtime
     hass.data[DOMAIN][entry.entry_id] = runtime
     entry.async_on_unload(entry.add_update_listener(_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Essential: slow/unreachable router MUST NOT delay Home Assistant startup.
     entry.async_create_background_task(hass, coord.async_refresh(), f"{DOMAIN} initial polling")
+    entry.async_create_background_task(hass, hardware.async_refresh(), f"{DOMAIN} initial hardware polling")
+    # Independent triggers keep logs/Netwatch responsive even with a 5-min
+    # inventory interval. Their own monotonic gates prevent overlapping polls.
+    settings = {**entry.data, **entry.options}
+    if settings.get(CONF_LOG_ENABLED, True):
+        entry.async_on_unload(async_track_time_interval(
+            hass, lambda _now: coord._schedule_logs(),
+            timedelta(seconds=max(30, int(settings.get(CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL)))),
+        ))
+    if settings.get(CONF_NETWATCH_ENABLED, False):
+        entry.async_on_unload(async_track_time_interval(
+            hass, lambda _now: coord._schedule_netwatch(),
+            timedelta(seconds=max(60, int(settings.get(CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)))),
+        ))
     return True
 
 
@@ -183,6 +267,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if result:
         runtime: RuntimeData = entry.runtime_data
         await runtime.coordinator.async_shutdown()
+        await runtime.hardware.async_shutdown()
+        await runtime.hardware_store.async_save(runtime.hardware.alert_engine.dump())
         await runtime.store.async_save(runtime.coordinator.inventory.dump())
         await runtime.log_store.async_save(runtime.coordinator.log_monitor.dump())
         hass.data[DOMAIN].pop(entry.entry_id, None)

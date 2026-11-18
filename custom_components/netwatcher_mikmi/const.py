@@ -3,7 +3,7 @@ from __future__ import annotations
 
 DOMAIN = "netwatcher_mikmi"
 NAME = "Netwatcher MikMi"
-VERSION = "0.3.0-beta.1"
+VERSION = "0.4.0-beta.1"
 
 CONF_ROUTER_HOST = "router_host"
 CONF_ROUTER_PORT = "router_port"
@@ -48,3 +48,26 @@ CONF_LOGIN_FAIL_THRESHOLD = "login_failures_threshold"
 CONF_FIREWALL_THRESHOLD = "wan_firewall_threshold"
 DEFAULT_LOG_INTERVAL = 60
 EVENT_WAN_SECURITY = "netwatcher_mikmi_wan_security_alert"
+
+# v0.4.0: independent RouterOS health poll and threshold alerts.
+CONF_HARDWARE_INTERVAL = "hardware_poll_interval"
+CONF_HEALTH_DETAIL_INTERVAL = "health_detail_poll_interval"
+CONF_HARDWARE_ALERTS = "hardware_alerts_enabled"
+CONF_HARDWARE_CPU_ENABLED = "hardware_cpu_alert_enabled"
+CONF_HARDWARE_RAM_ENABLED = "hardware_ram_alert_enabled"
+CONF_HARDWARE_TEMP_ENABLED = "hardware_temperature_alert_enabled"
+CONF_HARDWARE_CPU_THRESHOLD = "hardware_cpu_threshold"
+CONF_HARDWARE_RAM_THRESHOLD = "hardware_ram_threshold"
+CONF_HARDWARE_TEMP_THRESHOLD = "hardware_temperature_threshold"
+CONF_HARDWARE_SAMPLES = "hardware_confirm_samples"
+CONF_HARDWARE_RECOVERY = "hardware_notify_recovery"
+CONF_HARDWARE_ZALO = "hardware_notify_zalo"
+CONF_HARDWARE_COOLDOWN = "hardware_cooldown_minutes"
+DEFAULT_HARDWARE_INTERVAL = 15
+DEFAULT_HEALTH_DETAIL_INTERVAL = 60
+EVENT_HARDWARE_ALERT = "netwatcher_mikmi_hardware_alert"
+CONF_NETWATCH_ENABLED = "netwatch_read_enabled"
+CONF_NETWATCH_INTERVAL = "netwatch_poll_interval"
+DEFAULT_NETWATCH_INTERVAL = 120
+
+CONF_WAN_INTERFACE = "router_wan_interface"

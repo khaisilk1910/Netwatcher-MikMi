@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Netwatcher MikMi · Router Health (Demo)</title>
+<style>
+:root{--primary-color:#0da897;--primary-text-color:#e8f1fc;--secondary-text-color:#9daec5;--card-background-color:#182538;--secondary-background-color:#203249;--divider-color:#314357;--success-color:#06d6a0;--error-color:#fb7185}
+body{box-sizing:border-box;background:radial-gradient(ellipse at top,#24485a 0%,#111b2b 65%);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Arial,sans-serif;margin:0;padding:32px;color:#eaf5ff}
+main{max-width:1060px;margin:auto}.intro{display:flex;justify-content:space-between;align-items:center;margin:0 0 18px}.intro h1{font-size:18px;letter-spacing:.1em;font-weight:700}.demo{border:1px solid #4c6780;border-radius:30px;padding:6px 15px;color:#aad5e0;font-size:12px}
+</style></head><body><main><div class="intro"><h1>NETWATCHER MIKMI / CONTROL ROOM</h1><span class="demo">DEMO · DỮ LIỆU MINH HỌA</span></div><div id="mount"></div></main>
+<script src="../custom_components/netwatcher_mikmi/frontend/netwatcher-mikmi-card.js"></script>
+<script>
+const sample={
+ entry_id:'preview-example',available:true,source_error:null,last_success:1794982500,
+ readings:{cpu:72.6,ram:66.1,storage:24.8,temperature:83,cpu_temperature:83,board_temperature:52,voltage:24.1,fan_rpm:1920,
+ total_ram_mib:1024,free_ram_mib:347.1,cpu_count:4,cpu_frequency_mhz:1800,uptime_seconds:1371820},
+ board:{model:'CCR2004-16G-2S+',cpu_name:'ARMv8',architecture:'arm64',routeros_version:'7.24.4 (stable)',firmware:'7.24.4'},
+ alerts:{cpu:{enabled:true,active:false,threshold:85},ram:{enabled:true,active:false,threshold:90},temperature:{enabled:true,active:true,threshold:75}},
+ poll_intervals:{resource:15,sensors:60},wan_traffic:{name:'pppoe-out1',rx_bps:158400000,tx_bps:18300000,running:true},
+};
+const card=document.createElement('netwatcher-mikmi-card');
+card.setConfig({type:'custom:netwatcher-mikmi-card',title:'Netwatcher MikMi · Network Overview',default_view:'hardware',show_hardware:true,show_netwatch:true,show_logs:true});
+document.getElementById('mount').appendChild(card);
+card.hass={callWS:async(payload)=>{
+if(payload.type.endsWith('router_hardware'))return sample;
+if(payload.type.endsWith('router_netwatch'))return {enabled:true,available:true,probes:[{host:'1.1.1.1',comment:'Internet DNS',status:'up','rtt-avg':'11ms','loss-percent':'0%'},{host:'10.0.0.2',comment:'VPN Branch',status:'down','rtt-avg':'—','loss-percent':'100%'}]};
+if(payload.type.endsWith('inventory'))return {entry_id:'preview-example',baseline_complete:true,source_health:{mikrotik:{ok:true},xiaomi:{ok:true}},statistics:{total:42,online:36,offline:6,unknown:0,dynamic:3,unapproved:2},devices:[],count:42};
+if(payload.type.endsWith('router_logs'))return {entry_id:'preview-example',enabled:true,baselined:true,logs:[],count:0,source_health:{ok:true}};
+return {};
+}};
+</script></body></html>

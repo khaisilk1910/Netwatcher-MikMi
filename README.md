@@ -1,8 +1,144 @@
-# Netwatcher MikMi — MikroTik, Xiaomi Mesh, Zalo Bot và cảnh báo WAN
+# Netwatcher MikMi — MikroTik, Xiaomi Mesh, Router Health, Zalo Bot và cảnh báo WAN
 
-**Phiên bản:** `0.3.0-beta.1` · **Home Assistant custom integration** · ngôn ngữ UI English/Tiếng Việt · **beta, chưa xác nhận chạy trên thiết bị thật**.
+**Phiên bản:** `0.4.0-beta.1` · **Home Assistant custom integration** · ngôn ngữ UI English/Tiếng Việt · **beta, chưa xác nhận chạy trên thiết bị thật**.
 
 > ⚠️ **BẢO MẬT VÀ AN TOÀN VẬN HÀNH:** Phần mềm này chỉ **đọc** RouterOS qua API-SSL, không tự thay firewall, không mở cổng, không chặn IP và không thay DHCP. Chỉ cài trên mạng do bạn sở hữu hoặc được phép quản trị. Sao lưu cấu hình MikroTik/Home Assistant, thao tác Safe Mode khi sửa firewall. Mọi kết luận “bất thường” là tín hiệu xem xét, **không phải bằng chứng đã bị xâm nhập**.
+
+## MỚI TRONG v0.4 — Router Health + Netwatch + WAN throughput
+
+![Demo Router Health trên desktop (dữ liệu mô phỏng)](preview/router_health_desktop.png)
+
+<details><summary>Xem trước giao diện trên điện thoại (dữ liệu mô phỏng)</summary>
+
+![Demo Router Health trên điện thoại](preview/router_health_mobile.png)
+
+</details>
+
+> Đây là ảnh **giao diện chạy JavaScript card với dữ liệu GIẢ**, không phải dữ liệu từ MikroTik của bạn. Mở `preview/router_health_demo.html` trong trình duyệt để xem thử (chỉ demo; không kết nối RouterOS).
+
+### Điểm nổi bật
+
+- Thêm luồng CPU/RAM riêng (mặc định 15 giây), dữ liệu cảm biến nhiệt độ/quạt/điện áp (60 giây) và RouterBOARD firmware (mỗi 10 phút). Nguồn log, Netwatch, Xiaomi và inventory cũng có bộ điều khiển chu kỳ riêng; không chờ I/O của nhau.
+- Hiển thị CPU, RAM, nhiệt độ, lưu trữ, RAM tổng, số core CPU, xung nhịp, uptime, model, kiến trúc, RouterOS, firmware, voltage và tốc độ quạt (nếu phần cứng có cảm biến).
+- Đọc /tool/netwatch/print **chỉ đọc** để xem trạng thái các phép kiểm tra Netwatch **đã có trên MikroTik**. Không tự thêm probe hoặc script; Netwatch tắt mặc định.
+- Tính tốc độ WAN RX (download) / TX (upload) từ `rx-byte` và `tx-byte` trên `/interface/print`, chia theo **số giây thực tế** giữa hai lần lấy mẫu. Khi thiếu lượt đầu, reset counter hoặc interface sai: báo không có số liệu, **không lấy 0 giả**. Cần chọn tên WAN interface trong Options nếu không tự nhận PPPoE.
+- Ba đồng hồ tròn trên Lovelace tự đổi màu xanh / vàng / đỏ theo ngưỡng, có trạng thái chữ nổi bật. Card có các tab Router Health, Thiết bị, Netwatch, Nhật ký WAN, cùng visual editor để chọn tab mặc định, bật/tắt bảng dữ liệu.
+- Thông báo CPU / RAM / nhiệt độ có công tắc độc lập. **Mặc định tắt toàn bộ thông báo phần cứng**; bật trong Options khi bạn đã kiểm tra số đo thực tế và cấu hình Zalo Bot nếu muốn gửi ra Zalo thường.
+
+### Hướng dẫn nâng cấp từ v0.3 mà không mất dữ liệu
+
+1. Sao lưu thư mục cấu hình Home Assistant, dữ liệu `.storage` và bản export MikroTik. Không xóa config entry Netwatcher đang có.
+2. Giải nén ZIP v0.4 rồi **ghi đè toàn bộ thư mục** `/config/custom_components/netwatcher_mikmi/` (không chép thêm một thư mục lồng `netwatcher-mikmi`).
+3. Khởi động lại Home Assistant; vào **Settings → Devices & Services → Netwatcher MikMi → Configure**, lưu lại Options để xuất hiện các trường v0.4.
+4. Truy cập dashboard: tài nguyên JS đã đăng ký trong storage mode tự đổi sang `?v=0.4.0-beta.1`. Nếu cần xóa cache trình duyệt hoặc hard refresh. Với Lovelace YAML resource, tự sửa URL. **Không thêm một resource trùng lặp**.
+5. Mở tab **Router Health**, so sánh CPU/RAM/nhiệt độ và firmware với WinBox/Terminal. Chọn tên PPPoE của bạn trong tùy chọn `router_wan_interface` nếu WAN không được nhận diện.
+6. Thử cảnh báo ngưỡng trên router thử nghiệm hoặc bằng cách đặt ngưỡng **trong phạm vi an toàn** trong thời gian ngắn, sau đó hoàn nguyên. Không tạo tải CPU cực lớn, không cố làm quá nhiệt router đang cấp Internet cho gia đình/doanh nghiệp.
+
+Việc nâng cấp giữ `domain=netwatcher_mikmi`, unique ID cũ của cảm biến CPU (`router_cpu`), các config entry, inventory và Zalo Bot options. Cơ sở dữ liệu chống gửi trùng phần cứng được lưu độc lập bằng Home Assistant Storage; sau restart không phát lại thông báo cũ khi trạng thái vẫn quá ngưỡng.
+
+### Cấu hình Router Health và ngưỡng cảnh báo
+
+Mở **Settings → Devices & Services → Netwatcher MikMi → Configure**. Các trường chính:
+
+| Tùy chọn | Mặc định | Ý nghĩa |
+|---|---:|---|
+| `hardware_poll_interval` | 15 giây | Chu kỳ đọc CPU/RAM từ `/system/resource` (10–300 giây) |
+| `health_detail_poll_interval` | 60 giây | Chu kỳ đọc `/system/health` (30–600 giây; không nhỏ hơn CPU/RAM) |
+| `hardware_alerts_enabled` | OFF | Công tắc tổng thông báo vượt ngưỡng |
+| `hardware_cpu_alert_enabled` | ON | Cho phép cảnh báo CPU khi bật công tắc tổng |
+| `hardware_ram_alert_enabled` | ON | Cho phép cảnh báo RAM khi bật công tắc tổng |
+| `hardware_temperature_alert_enabled` | ON | Cảnh báo nhiệt độ khi firmware/hardware cung cấp sensor |
+| `hardware_cpu_threshold` | 85% | Ngưỡng CPU |
+| `hardware_ram_threshold` | 90% | Ngưỡng RAM đang sử dụng |
+| `hardware_temperature_threshold` | 75 °C | Ngưỡng cảm biến nhiệt độ ưu tiên CPU |
+| `hardware_confirm_samples` | 3 lần | Số **lượt đo mới** liên tiếp phải vượt ngưỡng trước khi cảnh báo |
+| `hardware_cooldown_minutes` | 30 phút | Chống lặp khi chỉ số dao động qua ngưỡng |
+| `hardware_notify_recovery` | ON | Có thông báo khi chỉ số đã trở lại an toàn |
+| `hardware_notify_zalo` | OFF | Gọi action `zalo_bot.send_message` từ tài khoản/người nhận đã cấu hình ở phần Zalo chung |
+| `router_wan_interface` | Trống | Trống = tự chọn PPPoE, nếu nhập tên sai sẽ không bịa số WAN |
+| `netwatch_read_enabled` | OFF | Đọc các mục `/tool/netwatch/print` hiện có |
+| `netwatch_poll_interval` | 120 giây | Chu kỳ Netwatch, đọc nền độc lập (60–600 giây) |
+
+**Chi tiết chống nhiễu:** CPU/RAM giảm xuống dưới ngưỡng trừ 5 điểm phần trăm; nhiệt độ giảm xuống dưới ngưỡng trừ 3°C, liên tiếp đủ số mẫu, mới xác nhận phục hồi. Dữ liệu nhiệt độ lưu cache để hiển thị giữa các lần đọc `/system/health`, nhưng **không được tính là một mẫu mới** cho bộ đếm cảnh báo. Cảm biến không tồn tại → `unavailable`, không làm giả 0°C. Khi RouterOS mất kết nối → các sensor phần cứng chuyển unavailable và **không kích hoạt** cảnh báo mới.
+
+Những ngưỡng này là **giá trị khởi đầu tham khảo**, không phải giới hạn nhiệt độ an toàn chính thức cho tất cả model. Xác nhận với tài liệu nhiệt độ môi trường/hoạt động của thiết bị của bạn rồi điều chỉnh. CPU 85% và RAM 90% chỉ phản ánh mức tải, không tự động kết luận phần cứng bị lỗi.
+
+### Mẫu tin nhắn Zalo Bot phần cứng
+
+```text
+🚨 NETWATCHER MIKMI | MIKROTIK HEALTH
+━━━━━━━━━━━━━━━━━━━━━━
+🚨 VƯỢT NGƯỠNG CẢNH BÁO
+
+🧩 Thiết bị: CCR2004-16G-2S+
+📊 Chỉ số: Nhiệt độ
+📈 Giá trị: 83°C
+🎯 Ngưỡng đã đặt: 75°C
+🕒 Thời gian: [giờ địa phương Home Assistant]
+
+⚠️ Đã xác nhận qua nhiều lần đo. Kiểm tra tải RouterOS,
+nhiệt độ thiết bị, thông gió và nguồn điện.
+🏠 Netwatcher MikMi · Router Hardware
+```
+
+Khi phục hồi: `🟢 ĐÃ HẠ VỀ MỨC AN TOÀN`. Tất cả tin dùng **Zalo thường** qua action đã có `zalo_bot.send_message`, có thể gửi nhiều user/group; không cần OA, không lưu token Zalo OA. Không gửi dữ liệu phần cứng nếu chưa bật `hardware_alerts_enabled`, `zalo_bot_enabled` và `hardware_notify_zalo`.
+
+### Lovelace card (tự đăng ký resource)
+
+Trong dashboard chọn **Add Card → Netwatcher MikMi** nếu card đã load. Dùng Visual Editor để cấu hình `default_view`, `show_hardware`, `show_traffic`, `show_netwatch`, `show_logs`, `page_size`, `show_ap`, `show_dhcp`, v.v. Nếu cấu hình bằng YAML:
+
+```yaml
+ type: custom:netwatcher-mikmi-card
+ title: Netwatcher MikMi · Network Overview
+ default_view: hardware
+ show_hardware: true
+ show_traffic: true
+ show_netwatch: true
+ show_logs: true
+ page_size: 25
+```
+
+Trong YAML resource mode, đăng ký một URL JavaScript duy nhất (sau khi tích hợp đã khởi động):
+
+```yaml
+resources:
+  - url: /netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.4.0-beta.1
+    type: module
+```
+
+Hai WebSocket `netwatcher_mikmi/router_hardware` và `netwatcher_mikmi/router_netwatch` chỉ trả dữ liệu khi tài khoản Home Assistant là **admin**, không trả mật khẩu/cookie/serial. Dashboard thường không có quyền xem dữ liệu nhạy cảm của Netwatcher; **không coi phân quyền card là thay thế firewall**.
+
+### Nguồn dữ liệu và giới hạn
+
+| Dữ liệu | Lệnh read-only | Chu kỳ | Lưu ý |
+|---|---|---:|---|
+| DHCP / IP / comment / ARP / bridge MAC / interface | `/ip/dhcp-server/lease/print`, `/ip/arp/print`, `/interface/bridge/host/print`, `/interface/print` | 30 s | Chỉ giữ dữ liệu cần dùng; số thiết bị online dựa trên nhiều bằng chứng, không dựa đơn lẻ lease `bound` |
+| CPU, RAM, uptime, bộ nhớ flash, CPU frequency | `/system/resource/print` | 15 s | Mỗi lần lấy dữ liệu dùng một TLS session với fingerprint đã kiểm tra |
+| Nhiệt độ, voltage, fan | `/system/health/print` | 60 s | Một số RouterBOARD/CHR không cung cấp sensor |
+| Model và RouterBOARD firmware | `/system/routerboard/print` | 10 phút | Một số thiết bị CHR/x86 không có RouterBOARD |
+| Log WAN, login | `/log/print` | 60 s | Chỉ phân loại khi có log thực tế, không coi mọi lần firewall drop là tấn công |
+| RouterOS Netwatch | `/tool/netwatch/print` | 120 s nếu bật | Không tự cài script/thăm dò, không thay đổi Netwatch |
+
+**Bảo mật so với các repo tham khảo:** Netwatcher *không* bật REST HTTP/HTTPS, không cấp `write`, không hỗ trợ reboot/block/unblock, không bật SNMP community public, không chạy lệnh RouterOS tùy ý. Mã RouterOS reader giới hạn vào các lệnh `/print`. Cùng một tài khoản `read,api` với `address=<IP Home Assistant>/32` và `/ip service api-ssl` chỉ dành cho HA; firewall `chain=input` phải chặn khách LAN thông thường và WAN. Phân quyền chỉ đọc **không ngăn lộ metadata** nếu mật khẩu/tài khoản HA bị chiếm quyền; phải bảo vệ các bản sao lưu và nhật ký.
+
+### Ba dự án tham khảo (không sao chép mã nguồn)
+
+- [Csontikka/ha-mikrotik-extended](https://github.com/Csontikka/ha-mikrotik-extended): tách tần suất poll, lưu lượng dựa trên bộ đếm và thời gian, nhiều nhóm cảm biến.
+- [simonkowallik/ha-mikrotik-netwatch](https://github.com/simonkowallik/ha-mikrotik-netwatch): thông số trạng thái và packet loss của Netwatch.
+- [ngoviet/routeros_ha](https://github.com/ngoviet/routeros_ha): sức khỏe phần cứng, tài nguyên, và giới hạn khác nhau theo model.
+- [RouterOS: Resource](https://manual.mikrotik.com/docs/cli-reference/system/resource/) và [RouterOS: Health](https://manual.mikrotik.com/docs/cli-reference/system/health/).
+
+Đã nghiên cứu ý tưởng từ các dự án trên nhưng **không sao chép mã nguồn** vào Netwatcher. Nếu sau này dự định sử dụng lại mã, cần kiểm tra giấy phép và thông báo bản quyền của từng repository. Không tự động thêm các thao tác chỉnh sửa router từ những tích hợp quản trị đầy đủ.
+
+### Tình trạng kiểm thử và rủi ro vận hành/pháp lý
+
+- **32/32 unit tests** chạy thành công với dữ liệu giả lập (kiểm thử parser RouterOS, debounce/hysteresis, chống trùng sau restart, Zalo Bot và chênh lệch counter).
+- Kiểm thử card trên trình duyệt Chromium giả lập có **0 lỗi JavaScript** ở Router Health/Netwatch, đã chụp giao diện desktop và điện thoại. Đây là **kiểm thử mô phỏng**, không phải kiểm thử phần cứng thật.
+- **Chưa xác thực end-to-end với Home Assistant 2026.11, RouterOS/firmware Xiaomi thực tế và Zalo Server của bạn.** Chưa được duyệt Marketplace/HACS chính thức. Nên chạy môi trường thử nghiệm, theo dõi logs và kiểm tra kỹ sau cập nhật Home Assistant.
+- Zalo thường dùng integration bên ngoài có thể phụ thuộc API không chính thức, gặp giới hạn, khóa tài khoản hoặc thay đổi giao thức. Mỗi người nhận Zalo phải được phép nhận thông tin; IP/MAC, comment DHCP, log/metadata mạng có thể là dữ liệu cá nhân. Tuân thủ pháp luật về bảo vệ dữ liệu, quyền riêng tư, hợp đồng/quy định mạng và điều khoản Zalo phù hợp nơi bạn hoạt động.
+- Trước khi bật log firewall WAN với tần suất cao, cần kiểm tra tải CPU và RAM RouterOS. Nên log có chọn lọc/giới hạn rate; không bật log cho toàn bộ traffic.
+
+---
 
 ## 1. Chức năng
 
@@ -169,7 +305,7 @@ show_dhcp: true
 show_logs: true
 ```
 
-Card đăng ký JavaScript resource khi HA sử dụng Lovelace storage mode; URL dự kiến `/netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.3.0-beta.1`. Với YAML mode, thêm resource `type: module` theo URL trên. Sau khi nâng cấp hãy reload trang với cache refresh nếu UI vẫn hiển thị phiên bản cũ.
+Card đăng ký JavaScript resource khi HA sử dụng Lovelace storage mode; URL dự kiến `/netwatcher-mikmi/netwatcher-mikmi-card.js?v=0.4.0-beta.1`. Với YAML mode, thêm resource `type: module` theo URL trên. Sau khi nâng cấp hãy reload trang với cache refresh nếu UI vẫn hiển thị phiên bản cũ.
 
 - Tab **Thiết bị**: trạng thái online/offline/unknown, static/dynamic, comment, loại kết nối và AP (nếu đủ chứng cứ), phê duyệt cục bộ. Nút Test Zalo Bot gửi một tin thử đến **mọi nơi nhận cấu hình**, giới hạn 1 lần/phút.
 - Tab **MikroTik Logs**: danh sách log gần nhất (topic, thời điểm RouterOS, severity, nội dung), lọc **Tất cả / Bảo mật / Warning**, tìm kiếm và phân trang. **Chỉ tài khoản HA admin** được gọi WebSocket endpoint. Không lưu raw log dài hạn.
