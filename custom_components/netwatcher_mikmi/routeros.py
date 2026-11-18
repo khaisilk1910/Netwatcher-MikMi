@@ -146,10 +146,13 @@ class RouterOSReader:
                     for key, (command, columns, optional) in commands.items():
                         try:
                             result[key] = self._command(conn, [command] + ([f"=.proplist={columns}"] if columns else []))
+                            if optional:
+                                result[f"{key}_ok"] = True
                         except RouterError:
                             if not optional:
                                 raise
                             result[key] = []
+                            result[f"{key}_ok"] = False
                     return result
         except (socket.timeout, OSError, ssl.SSLError) as exc:
             raise RouterError("RouterOS API-SSL connection failed") from exc
@@ -181,10 +184,13 @@ class RouterOSReader:
 
     def fetch(self) -> dict[str, list[dict[str, str]]]:
         """Fetch inventory only; hardware and RouterOS logs run independently."""
-        return self._connect_and_read({
-            key: (command, columns, False)
-            for key, (command, columns) in COMMANDS.items()
-        })
+        commands = {key: (command, columns, False)
+                    for key, (command, columns) in COMMANDS.items()}
+        commands["wifi_registration"] = (
+            "/interface/wifi/registration-table/print", "mac-address,interface", True)
+        commands["wireless_registration"] = (
+            "/interface/wireless/registration-table/print", "mac-address,interface", True)
+        return self._connect_and_read(commands)
 
     def fetch_logs(self) -> list[dict[str, str]]:
         """Memory log read only; HTTPS certificate pinned before credentials."""

@@ -3,21 +3,18 @@ from __future__ import annotations
 
 DOMAIN = "netwatcher_mikmi"
 NAME = "Netwatcher MikMi"
-VERSION = "0.4.1-beta.3"
+VERSION = "0.4.1-beta.5"
 
 CONF_ROUTER_HOST = "router_host"
 CONF_ROUTER_PORT = "router_port"
 CONF_ROUTER_USERNAME = "router_username"
 CONF_ROUTER_PASSWORD = "router_password"
 CONF_ROUTER_FINGERPRINT = "router_sha256_fingerprint"
-CONF_XIAOMI_HOSTS = "xiaomi_hosts"
-CONF_XIAOMI_PASSWORD = "xiaomi_password"
 CONF_POLL_INTERVAL = "poll_interval"
 CONF_OFFLINE_AFTER = "offline_after"
 CONF_NOTIFY_EXISTING = "notify_existing_dynamic"
 CONF_NOTIFY_PERSISTENT = "notify_persistent"
 CONF_LAN_PORTS = "lan_endpoint_ports"
-CONF_DIRECT_AP_HOSTS = "verified_direct_ap_hosts"
 CONF_TRACKERS = "enable_device_trackers"
 
 DEFAULT_POLL = 30

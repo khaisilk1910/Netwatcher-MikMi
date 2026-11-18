@@ -16,10 +16,6 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             "ok": coord.source_health["mikrotik"]["ok"],
             "error_category": coord.source_health["mikrotik"]["error"],
         },
-        "xiaomi_source": {
-            "ok": coord.source_health["xiaomi"]["ok"],
-            "error_category": coord.source_health["xiaomi"]["error"],
-        },
         "statistics": coord.inventory.statistics(),
         "hardware_source": {"ok": bool(entry.runtime_data.hardware.last_update_success),
                             "error_category": entry.runtime_data.hardware.source_error},
@@ -28,7 +24,6 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "netwatch_source_ok": bool(coord.source_health["netwatch"]["ok"]),
         "baseline_complete": coord.inventory.baseline_complete,
         "poll_interval": entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL),
-        "configured_xiaomi_nodes": len(coord._wifi_hosts),
         "zalo_enabled": bool(entry.options.get(CONF_ZALO_BOT_ENABLED, False)),
         "zalo_notify_dynamic": bool(entry.options.get(CONF_ZALO_NOTIFY_DYNAMIC, True)),
         "zalo_notify_online": bool(entry.options.get(CONF_ZALO_NOTIFY_ONLINE, False)),

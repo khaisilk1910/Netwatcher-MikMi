@@ -14,17 +14,15 @@ from .const import DOMAIN
 
 METRIC_ICONS = {
     "total": "mdi:devices", "online": "mdi:check-network", "offline": "mdi:lan-disconnect",
-    "unknown": "mdi:help-network", "dynamic": "mdi:alert-network",
+"dynamic": "mdi:alert-network",
     "unapproved": "mdi:shield-alert-outline",
 }
-SOURCE_ICONS = {"mikrotik": "mdi:router-network", "xiaomi": "mdi:access-point-network",
-                "router_logs": "mdi:text-box-search-outline", "netwatch": "mdi:monitor-eye"}
+SOURCE_ICONS = {"mikrotik": "mdi:router-network", "router_logs": "mdi:text-box-search-outline", "netwatch": "mdi:monitor-eye"}
 
 METRICS = (
     ("total", "Devices total"),
     ("online", "Devices online"),
     ("offline", "Devices offline"),
-    ("unknown", "Devices unknown"),
     ("dynamic", "DHCP dynamic devices"),
     ("unapproved", "Unapproved devices"),
 )
@@ -67,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator = runtime.coordinator
     hardware = runtime.hardware
     entities = [InventorySensor(coordinator, entry, key, name) for key, name in METRICS]
-    entities.extend(SourceSensor(coordinator, entry, key) for key in ("mikrotik", "xiaomi", "router_logs", "netwatch"))
+    entities.extend(SourceSensor(coordinator, entry, key) for key in ("mikrotik", "router_logs", "netwatch"))
     entities.extend(HardwareSensor(hardware, entry, field) for field in HARDWARE_FIELDS)
     entities.append(NetwatchDownSensor(coordinator, entry))
     entities.extend(WanTrafficSensor(coordinator, entry, direction) for direction in ("rx_bps", "tx_bps"))
@@ -114,7 +112,7 @@ class SourceSensor(MikMiEntity):
         if info["error"] == "disabled":
             return "disabled"
         if info["error"] == "not_polled":
-            return "unknown"
+            return "initializing"
         return "online" if info["ok"] else "unavailable"
 
     @property

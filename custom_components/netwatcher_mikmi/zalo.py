@@ -52,16 +52,13 @@ def format_alert(event: str, device: dict[str, Any], local_time: str, include_ma
         "disconnected": "\U0001f4f4 Tr\u1ea1ng th\u00e1i: Kh\u00f4ng c\u00f2n \u0111\u01b0\u1ee3c ph\u00e1t hi\u1ec7n",
     }
     link = str(device.get("connection") or "unknown")
-    mode = (
-        "Wi-Fi" + (f" {_single_line(device.get('wifi_band'), 20)}" if device.get("wifi_band") else "")
-        if link == "wifi" else "LAN" if link == "lan" else "Ch\u01b0a x\u00e1c \u0111\u1ecbnh"
-    )
+    mode = "Wi-Fi" if link == "wifi" else "LAN" if link == "lan" else "Ch\u01b0a x\u00e1c \u0111\u1ecbnh"
     lines = [
         titles.get(event, titles["connected"]),
         "\u2501" * 22,
         summaries.get(event, ""),
         "",
-        f"\U0001f4f1 Thi\u1ebft b\u1ecb: {_single_line(device.get('alias') or device.get('comment') or device.get('xiaomi_name') or device.get('host_name') or device.get('mac'))}",
+        f"\U0001f4f1 Thi\u1ebft b\u1ecb: {_single_line(device.get('alias') or device.get('comment') or device.get('host_name') or device.get('mac'))}",
         f"\U0001f310 IP: {_single_line(device.get('ip'))}",
     ]
     if include_mac:
@@ -98,6 +95,7 @@ class ZaloNotifier:
         self._send_slots = asyncio.Semaphore(2)
         self._used: deque[float] = deque()
         self._last_test = 0.0
+        self._last_delivery: dict[str, Any] | None = None
 
     @property
     def enabled(self) -> bool:
@@ -116,6 +114,26 @@ class ZaloNotifier:
         groups = parse_recipients(self._settings.get(CONF_ZALO_BOT_GROUPS, ""))
         return ([('0', uid) for uid in users] + [('1', gid) for gid in groups])[:MAX_BATCH_RECIPIENTS]
 
+    def diagnostics(self) -> dict[str, Any]:
+        """Admin-only, non-secret notification readiness for the dashboard."""
+        try:
+            target_count = len(self._targets())
+            recipients_valid = True
+        except (ValueError, TypeError):
+            target_count = 0
+            recipients_valid = False
+        return {
+            "enabled": self.enabled,
+            "online_alerts": self.wants("connected"),
+            "offline_alerts": self.wants("disconnected"),
+            "dynamic_alerts": self.wants("new_dynamic"),
+            "service_available": self._hass.services.has_service(SERVICE_DOMAIN, SERVICE_NAME),
+            "account_configured": bool(str(self._settings.get(CONF_ZALO_BOT_ACCOUNT) or "").strip()),
+            "recipient_count": target_count,
+            "recipients_valid": recipients_valid,
+            "last_delivery": dict(self._last_delivery) if self._last_delivery else None,
+        }
+
     def _allow_send(self) -> bool:
         now = time.monotonic()
         while self._used and now - self._used[0] >= 3600:
@@ -124,6 +142,26 @@ class ZaloNotifier:
             return False
         self._used.append(now)
         return True
+
+    def _service_supports_response(self) -> bool:
+        """Respect Zalo Bot versions that register a no-response HA action.
+
+        Requesting a response from a `NONE` service causes Home Assistant to
+        reject the call before delivery. Never retry blindly: this is decided
+        from service metadata, preventing accidental duplicate messages.
+        """
+        list_services = getattr(self._hass.services, "async_services", None)
+        if not callable(list_services):
+            return True  # Older/fake registries; retain the previous behavior.
+        try:
+            service = list_services().get(SERVICE_DOMAIN, {}).get(SERVICE_NAME)
+            support = getattr(service, "supports_response", None)
+            if support is None:
+                return True
+            value = str(getattr(support, "value", support)).lower()
+            return value not in ("none", "serviceresponse.none", "0", "false")
+        except (AttributeError, TypeError):
+            return True
 
     async def _send_to_target(self, target_type: str, thread_id: str, message: str) -> bool:
         """Avoid putting raw numeric IDs in HA templates or frontend numbers.
@@ -147,7 +185,7 @@ class ZaloNotifier:
                 result = await asyncio.wait_for(
                     self._hass.services.async_call(
                         SERVICE_DOMAIN, SERVICE_NAME, payload,
-                        blocking=True, return_response=True,
+                        blocking=True, return_response=self._service_supports_response(),
                     ),
                     timeout=SERVICE_TIMEOUT,
                 )
@@ -164,10 +202,15 @@ class ZaloNotifier:
     async def _send_text(self, message: str) -> dict[str, int | bool]:
         if not self.enabled:
             return {"submitted": 0, "failed": 0, "rate_limited": 0}
-        targets = self._targets()
+        try:
+            targets = self._targets()
+        except (ValueError, TypeError):
+            _LOGGER.warning('Personal Zalo recipient configuration is invalid')
+            return {"submitted": 0, "failed": 0, "rate_limited": 0, "invalid_recipients": True}
         if not targets or not self._settings.get(CONF_ZALO_BOT_ACCOUNT):
             _LOGGER.warning('Personal Zalo is enabled but account/recipients are not configured')
-            return {"submitted": 0, "failed": len(targets), "rate_limited": 0}
+            return {"submitted": 0, "failed": len(targets), "rate_limited": 0,
+                    "missing_configuration": True}
         if not self._hass.services.has_service(SERVICE_DOMAIN, SERVICE_NAME):
             _LOGGER.warning('Personal Zalo unavailable: install and configure Zalo Bot before enabling alerts')
             return {"submitted": 0, "failed": len(targets), "rate_limited": 0, "service_missing": True}
@@ -188,6 +231,7 @@ class ZaloNotifier:
         timestamp = dt_util.now().strftime('%d/%m/%Y %H:%M:%S')
         body = format_alert(event, device, timestamp, bool(self._settings.get(CONF_ZALO_INCLUDE_MAC, False)))
         result = await self._send_text(body)
+        self._last_delivery = {"type": event, "at": time.time(), **result}
         _LOGGER.info('Personal Zalo alert %s: submitted=%d failed=%d throttled=%d',
                      event, result['submitted'], result['failed'], result['rate_limited'])
         return result
@@ -275,4 +319,6 @@ class ZaloNotifier:
                    '📨 Đây là tin kiểm tra đến danh sách người nhận đã cấu hình.\n'
                    '🛡️ Không chứa thông tin thiết bị mạng.\n'
                    f'🕒 Thời gian: {dt_util.now().strftime("%d/%m/%Y %H:%M:%S")}')
-        return await self._send_text(message)
+        result = await self._send_text(message)
+        self._last_delivery = {"type": "test", "at": time.time(), **result}
+        return result

@@ -1,7 +1,6 @@
-"""Non-blocking polling and correlation for MikroTik + optional Xiaomi nodes."""
+"""Non-blocking polling and correlation for MikroTik RouterOS."""
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -10,17 +9,14 @@ from typing import Any
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from xiaomi_miwifi import MiWiFiClient
 
 from .const import (
-    CONF_DIRECT_AP_HOSTS, CONF_LAN_PORTS, CONF_NOTIFY_EXISTING,
+    CONF_LAN_PORTS, CONF_NOTIFY_EXISTING,
     CONF_NOTIFY_PERSISTENT, CONF_OFFLINE_AFTER, CONF_POLL_INTERVAL,
     CONF_ROUTER_FINGERPRINT, CONF_ROUTER_HOST, CONF_ROUTER_PASSWORD,
-    CONF_ROUTER_PORT, CONF_ROUTER_USERNAME, CONF_XIAOMI_HOSTS,
-    CONF_XIAOMI_PASSWORD, DEFAULT_OFFLINE, DEFAULT_POLL, DOMAIN,
+    CONF_ROUTER_PORT, CONF_ROUTER_USERNAME, DEFAULT_OFFLINE, DEFAULT_POLL, DOMAIN,
     EVENT_CONNECTED, EVENT_DISCONNECTED, EVENT_NEW_DYNAMIC,
     CONF_LOG_ENABLED, CONF_LOG_INTERVAL, CONF_WAN_ALERTS, CONF_ZALO_NOTIFY_WAN,
     CONF_LOGIN_FAIL_THRESHOLD, CONF_FIREWALL_THRESHOLD, DEFAULT_LOG_INTERVAL,
@@ -31,9 +27,8 @@ from .inventory import Inventory
 from .log_monitor import RouterLogMonitor
 from .zalo import ZaloNotifier
 from .routeros import RouterOSReader
-from .xiaomi_collector import fetch_xiaomi_clients
 from .traffic import InterfaceRateTracker, choose_wan
-from .security import parse_hosts, port_names
+from .security import port_names
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,19 +49,16 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.netwatch_rows: list[dict[str, Any]] = []
         settings = {**entry.data, **entry.options}
         self._settings = settings
-        self._wifi_hosts = parse_hosts(str(settings.get(CONF_XIAOMI_HOSTS, "")))
         self._router = RouterOSReader(
             settings[CONF_ROUTER_HOST], settings.get(CONF_ROUTER_PORT, 8729),
             settings[CONF_ROUTER_USERNAME], settings[CONF_ROUTER_PASSWORD],
             settings[CONF_ROUTER_FINGERPRINT],
         )
-        self._wifi_clients: dict[str, MiWiFiClient] = {}
         self._rate_tracker = InterfaceRateTracker()
         self.wan_traffic: dict[str, Any] = {"name": None, "rx_bps": None, "tx_bps": None, "running": False}
         self.zalo = ZaloNotifier(hass, settings)
         self.source_health: dict[str, dict[str, Any]] = {
             "mikrotik": {"ok": False, "last_success": None, "error": "not_polled"},
-            "xiaomi": {"ok": False, "last_success": None, "error": "not_polled" if self._wifi_hosts else "disabled"},
             "router_logs": {"ok": False, "last_success": None,
                             "error": "not_polled" if settings.get(CONF_LOG_ENABLED, True) else "disabled"},
             "netwatch": {"ok": False, "last_success": None,
@@ -89,22 +81,6 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.info("Netwatcher source recovered: %s", name)
         elif previous or previous_error == "not_polled":
             _LOGGER.warning("Netwatcher source unavailable: %s (category=%s)", name, error)
-
-    async def _poll_xiaomi_host(self, host: str) -> list[dict[str, Any]]:
-        client = self._wifi_clients.get(host)
-        if client is None:
-            client = MiWiFiClient(host, password=self._settings[CONF_XIAOMI_PASSWORD],
-                                 session=async_get_clientsession(self.hass))
-            self._wifi_clients[host] = client
-        # MiWiFiClient already refreshes expired auth tokens on a 401 response.
-        # A heavyweight status request and unconditional login retry made the
-        # previous 12s timeout likely even for reachable routers.
-        try:
-            return await fetch_xiaomi_clients(client, host)
-        except Exception:
-            # Next scheduled poll gets a fresh client/token. Do not log secrets.
-            self._wifi_clients.pop(host, None)
-            raise
 
     def _schedule_logs(self) -> None:
         """Separate polling path: router log I/O NEVER blocks inventory refresh."""
@@ -202,44 +178,18 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.wan_traffic = {"name": chosen,
                                 **(rates.get(chosen) or {"rx_bps": None, "tx_bps": None, "running": False})}
 
-        wifi_observations: list[dict[str, Any]] | None = None
-        wifi_complete = True
-        if self._wifi_hosts:
-            results = await asyncio.gather(
-                *(self._poll_xiaomi_host(host) for host in self._wifi_hosts),
-                return_exceptions=True,
-            )
-            wifi_observations = []
-            failures = []
-            for result in results:
-                if isinstance(result, BaseException):
-                    failures.append(type(result).__name__)
-                else:
-                    wifi_observations.extend(result)
-            wifi_complete = not failures
-            if failures:
-                self._health("xiaomi", False, failures[0])
-                _LOGGER.debug("MiWiFi partial snapshot: %d/%d nodes succeeded", len(results) - len(failures), len(results))
-            else:
-                self._health("xiaomi", True)
-            if len(failures) == len(results):
-                wifi_observations = None
-
         now = time.time()
         events = self.inventory.ingest(
-            router=snapshot,
-            wifi=wifi_observations,
-            timestamp=now,
+            router=snapshot, timestamp=now,
             offline_after=int(self._settings.get(CONF_OFFLINE_AFTER, DEFAULT_OFFLINE)),
-            direct_hosts=set(parse_hosts(str(self._settings.get(CONF_DIRECT_AP_HOSTS, "")))),
             lan_ports=port_names(str(self._settings.get(CONF_LAN_PORTS, ""))),
             alert_existing=bool(self._settings.get(CONF_NOTIFY_EXISTING, False)),
-            wifi_complete=wifi_complete,
-            xiaomi_configured=bool(self._wifi_hosts),
         )
         self.store.async_delay_save(self.inventory.dump, 10)
         zalo_scheduled = 0
         persistent_created = 0
+        if events:
+            _LOGGER.info("Netwatcher changes detected: %s", ", ".join(str(e["type"]) for e in events[:30]))
         for event in events:
             event_type = event.pop("type")
             record = self.inventory.devices.get(event.get("mac", ""), {})
@@ -269,9 +219,9 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("Zalo alert batch capped at 30 events this poll")
         statistics = self.inventory.statistics()
         _LOGGER.debug(
-            "Netwatcher poll complete: router=%s xiaomi=%s inventory=%d events=%d",
+            "Netwatcher poll complete: router=%s inventory=%d online=%d offline=%d events=%d",
             self.source_health["mikrotik"]["ok"],
-            self.source_health["xiaomi"]["ok"], statistics["total"], len(events),
+            statistics["total"], statistics["online"], statistics["offline"], len(events),
         )
         return {"statistics": statistics, "sources": self.source_health.copy(), "timestamp": now,
                 "router": {"resource": snapshot.get("resource", [{}])[0] if snapshot and snapshot.get("resource") else None,

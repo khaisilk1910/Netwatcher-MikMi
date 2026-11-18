@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 class MikMiHardwareCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Poll resource every 15s, health every 60s, board every 10min.
 
-    Uses independent executor I/O, never waits for Xiaomi/ARP or log scans.
+    Uses independent executor I/O, never waits for inventory or log scans.
     Errors in this path cannot mark all DHCP clients offline.
     """
 

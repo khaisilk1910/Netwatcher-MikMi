@@ -10,11 +10,11 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
 from .const import (
-    CONF_DIRECT_AP_HOSTS, CONF_LAN_PORTS, CONF_NOTIFY_EXISTING,
+    CONF_LAN_PORTS, CONF_NOTIFY_EXISTING,
     CONF_NOTIFY_PERSISTENT, CONF_OFFLINE_AFTER, CONF_POLL_INTERVAL,
     CONF_ROUTER_FINGERPRINT, CONF_ROUTER_HOST, CONF_ROUTER_PASSWORD,
     CONF_ROUTER_PORT, CONF_ROUTER_USERNAME, CONF_TRACKERS,
-    CONF_XIAOMI_HOSTS, CONF_XIAOMI_PASSWORD, DEFAULT_OFFLINE, DEFAULT_POLL, DOMAIN,
+    DEFAULT_OFFLINE, DEFAULT_POLL, DOMAIN,
     CONF_ZALO_BOT_ENABLED, CONF_ZALO_BOT_ACCOUNT, CONF_ZALO_BOT_USERS, CONF_ZALO_BOT_GROUPS,
     CONF_ZALO_NOTIFY_DYNAMIC, CONF_ZALO_NOTIFY_ONLINE, CONF_ZALO_NOTIFY_OFFLINE,
     CONF_ZALO_INCLUDE_MAC,
@@ -30,7 +30,7 @@ from .const import (
     CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL, CONF_WAN_INTERFACE,
 )
 from .routeros import RouterAuthError, RouterCertificateError, RouterOSReader
-from .security import fingerprint_sha256, parse_hosts, port_names, private_ipv4, parse_recipients
+from .security import fingerprint_sha256, port_names, private_ipv4, parse_recipients
 
 PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 
@@ -43,9 +43,6 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
         vol.Required(CONF_ROUTER_USERNAME, default=data.get(CONF_ROUTER_USERNAME, "ha_reader")): str,
         vol.Required(CONF_ROUTER_PASSWORD, default=data.get(CONF_ROUTER_PASSWORD, "")): PASSWORD,
         vol.Required(CONF_ROUTER_FINGERPRINT, default=data.get(CONF_ROUTER_FINGERPRINT, "")): str,
-        vol.Optional(CONF_XIAOMI_HOSTS, default=data.get(CONF_XIAOMI_HOSTS, "")): str,
-        vol.Optional(CONF_XIAOMI_PASSWORD, default=data.get(CONF_XIAOMI_PASSWORD, "")): PASSWORD,
-        vol.Optional("acknowledge_xiaomi_http_risk", default=False): bool,
     })
 
 
@@ -53,13 +50,6 @@ async def _verify(hass, values: dict[str, Any]) -> str | None:
     try:
         private_ipv4(values[CONF_ROUTER_HOST])
         fingerprint_sha256(values[CONF_ROUTER_FINGERPRINT])
-        nodes = parse_hosts(values.get(CONF_XIAOMI_HOSTS, ""))
-        if values[CONF_ROUTER_HOST] in nodes:
-            return "invalid_hosts"
-        if nodes and not values.get(CONF_XIAOMI_PASSWORD):
-            return "xiaomi_password_required"
-        if nodes and not values.get("acknowledge_xiaomi_http_risk", False):
-            return "xiaomi_risk_ack_required"
     except (ValueError, TypeError):
         return "invalid_hosts"
     reader = RouterOSReader(values[CONF_ROUTER_HOST], values[CONF_ROUTER_PORT],
@@ -89,7 +79,7 @@ class NetwatcherMikMiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(private_ipv4(user_input[CONF_ROUTER_HOST]))
                 self._abort_if_unique_id_configured()
-                config = {key: value for key, value in user_input.items() if key != "acknowledge_xiaomi_http_risk"}
+                config = dict(user_input)
                 config[CONF_ROUTER_FINGERPRINT] = fingerprint_sha256(config[CONF_ROUTER_FINGERPRINT])
                 return self.async_create_entry(title=f"Netwatcher MikMi - {config[CONF_ROUTER_HOST]}", data=config)
         return self.async_show_form(step_id="user", data_schema=_schema(), errors=errors)
@@ -104,7 +94,7 @@ class NetwatcherMikMiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             updated = {**entry.data, **user_input}
-            error = await _verify(self.hass, {**updated, "acknowledge_xiaomi_http_risk": True})
+            error = await _verify(self.hass, updated)
             if error:
                 errors["base"] = error
             else:
@@ -112,7 +102,6 @@ class NetwatcherMikMiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="reauth_confirm", data_schema=vol.Schema({
             vol.Required(CONF_ROUTER_PASSWORD): PASSWORD,
             vol.Required(CONF_ROUTER_FINGERPRINT, default=entry.data[CONF_ROUTER_FINGERPRINT]): str,
-            vol.Optional(CONF_XIAOMI_PASSWORD, default=entry.data.get(CONF_XIAOMI_PASSWORD, "")): PASSWORD,
         }), errors=errors)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -125,7 +114,7 @@ class NetwatcherMikMiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if error:
                 errors["base"] = error
             else:
-                data = {key: value for key, value in user_input.items() if key != "acknowledge_xiaomi_http_risk"}
+                data = dict(user_input)
                 data[CONF_ROUTER_FINGERPRINT] = fingerprint_sha256(data[CONF_ROUTER_FINGERPRINT])
                 return self.async_update_reload_and_abort(entry, data=data)
         return self.async_show_form(step_id="reconfigure", data_schema=_schema(entry.data), errors=errors)
@@ -142,10 +131,6 @@ class NetwatcherMikMiOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             try:
                 port_names(user_input.get(CONF_LAN_PORTS, ""))
-                direct = set(parse_hosts(user_input.get(CONF_DIRECT_AP_HOSTS, "")))
-                configured = set(parse_hosts(self.config_entry.data.get(CONF_XIAOMI_HOSTS, "")))
-                if not direct.issubset(configured):
-                    errors["base"] = "invalid_direct_hosts"
                 users = parse_recipients(user_input.get(CONF_ZALO_BOT_USERS, ""))
                 groups = parse_recipients(user_input.get(CONF_ZALO_BOT_GROUPS, ""))
                 if len(users) + len(groups) > 20:
@@ -201,7 +186,6 @@ class NetwatcherMikMiOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_NOTIFY_PERSISTENT, default=opts.get(CONF_NOTIFY_PERSISTENT, True)): bool,
             vol.Required(CONF_TRACKERS, default=opts.get(CONF_TRACKERS, False)): bool,
             vol.Optional(CONF_LAN_PORTS, default=opts.get(CONF_LAN_PORTS, "")): str,
-            vol.Optional(CONF_DIRECT_AP_HOSTS, default=opts.get(CONF_DIRECT_AP_HOSTS, "")): str,
             vol.Required(CONF_ZALO_BOT_ENABLED, default=opts.get(CONF_ZALO_BOT_ENABLED, False)): bool,
             vol.Optional(CONF_ZALO_BOT_ACCOUNT, default=opts.get(CONF_ZALO_BOT_ACCOUNT, "")): str,
             vol.Optional(CONF_ZALO_BOT_USERS, default=opts.get(CONF_ZALO_BOT_USERS, "")): str,

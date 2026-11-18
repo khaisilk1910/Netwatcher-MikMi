@@ -23,6 +23,7 @@ from .log_monitor import RouterLogMonitor
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "device_tracker"]
+COLUMN_IDS = ("device", "ip", "state", "link", "port", "dhcp", "approved")
 
 
 @dataclass
@@ -32,12 +33,14 @@ class RuntimeData:
     log_store: Store
     hardware: MikMiHardwareCoordinator
     hardware_store: Store
+    preferences_store: Store
+    column_preferences: dict[str, list[str]]
 
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/inventory",
     vol.Optional("entry_id", default=""): str,
-    vol.Optional("status", default="all"): vol.In(["all", "online", "offline", "unknown", "dynamic", "unapproved"]),
+    vol.Optional("status", default="all"): vol.In(["all", "online", "offline", "dynamic", "unapproved"]),
     vol.Optional("search", default=""): str,
     vol.Optional("sort_by", default="recent"): vol.In(["recent", "name", "ip"]),
     vol.Optional("sort_dir", default="desc"): vol.In(["asc", "desc"]),
@@ -61,7 +64,37 @@ def ws_inventory(hass: HomeAssistant, connection: websocket_api.ActiveConnection
         "devices": records, "count": count, "statistics": coord.inventory.statistics(),
         "source_health": coord.source_health, "entry_id": coord.entry.entry_id,
         "baseline_complete": coord.inventory.baseline_complete,
+        "column_preferences": runtime.column_preferences.get(connection.user.id),
+        "zalo": coord.zalo.diagnostics(),
+        "poll_interval": int(coord._settings.get("poll_interval", 30)),
+        "offline_after": int(coord._settings.get("offline_after", 120)),
     })
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/columns",
+    vol.Required("entry_id"): str,
+    vol.Required("columns"): vol.All([vol.In(COLUMN_IDS)], vol.Length(min=1, max=len(COLUMN_IDS))),
+})
+@callback
+def ws_columns(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Save column preferences per authenticated HA user (HA Store, not browser)."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Admin access required")
+        return
+    runtime = hass.data.get(DOMAIN, {}).get(msg["entry_id"])
+    if runtime is None:
+        connection.send_error(msg["id"], "not_found", "Netwatcher entry not found")
+        return
+    columns = list(dict.fromkeys(msg["columns"]))
+    if not columns:
+        connection.send_error(msg["id"], "invalid", "At least one column is required")
+        return
+    runtime.column_preferences[connection.user.id] = columns
+    runtime.preferences_store.async_delay_save(
+        lambda: {"users": runtime.column_preferences}, 2,
+    )
+    connection.send_result(msg["id"], {"columns": columns})
 
 
 @websocket_api.websocket_command({
@@ -196,6 +229,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     hass.data.setdefault(DOMAIN, {})
     websocket_api.async_register_command(hass, ws_inventory)
     websocket_api.async_register_command(hass, ws_approve)
+    websocket_api.async_register_command(hass, ws_columns)
     websocket_api.async_register_command(hass, ws_test_zalo)
     websocket_api.async_register_command(hass, ws_router_logs)
     websocket_api.async_register_command(hass, ws_router_hardware)
@@ -224,6 +258,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         clean_options = {k: v for k, v in entry.options.items() if k not in legacy_oa}
         hass.config_entries.async_update_entry(entry, options=clean_options)
         _LOGGER.info("Legacy Zalo OA settings discarded; personal Zalo Bot remains opt-in")
+    # Purge retired collector credentials from stored configuration on upgrade.
+    obsolete = {"xiaomi_hosts", "xiaomi_password", "acknowledge_xiaomi_http_risk", "verified_direct_ap_hosts"}
+    clean_data = {k: v for k, v in entry.data.items() if k not in obsolete}
+    clean_options = {k: v for k, v in entry.options.items() if k not in obsolete}
+    if clean_data != dict(entry.data) or clean_options != dict(entry.options):
+        hass.config_entries.async_update_entry(entry, data=clean_data, options=clean_options)
+        _LOGGER.info("Netwatcher retired credentials and settings cleared from config entry")
     store = Store(hass, 1, f"{DOMAIN}_{entry.entry_id}")
     previous = await store.async_load()
     inventory = Inventory(previous)
@@ -233,11 +274,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coord = MikMiCoordinator(hass, entry, inventory, store, log_monitor, log_store)
     hardware_store = Store(hass, 1, f"{DOMAIN}_hardware_{entry.entry_id}")
     previous_hardware = await hardware_store.async_load()
+    preferences_store = Store(hass, 1, f"{DOMAIN}_columns_{entry.entry_id}")
+    preferences_data = await preferences_store.async_load() or {}
+    column_preferences = {}
+    for user_id, columns in preferences_data.get("users", {}).items():
+        if isinstance(user_id, str) and isinstance(columns, list):
+            valid = [col for col in dict.fromkeys(columns) if col in COLUMN_IDS]
+            if valid:
+                column_preferences[user_id] = valid
     hardware = MikMiHardwareCoordinator(
         hass, entry, coord._router, hardware_store, previous_hardware, coord.zalo
     )
     runtime = RuntimeData(coordinator=coord, store=store, log_store=log_store,
-                          hardware=hardware, hardware_store=hardware_store)
+                          hardware=hardware, hardware_store=hardware_store,
+                          preferences_store=preferences_store, column_preferences=column_preferences)
     entry.runtime_data = runtime
     hass.data[DOMAIN][entry.entry_id] = runtime
     entry.async_on_unload(entry.add_update_listener(_options_updated))
@@ -274,5 +324,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await runtime.hardware_store.async_save(runtime.hardware.alert_engine.dump())
         await runtime.store.async_save(runtime.coordinator.inventory.dump())
         await runtime.log_store.async_save(runtime.coordinator.log_monitor.dump())
+        await runtime.preferences_store.async_save({"users": runtime.column_preferences})
         hass.data[DOMAIN].pop(entry.entry_id, None)
     return result

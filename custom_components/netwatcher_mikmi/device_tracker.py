@@ -1,4 +1,4 @@
-"""Optional per-device scanner entities; 'unknown' is unavailable, not 'away'."""
+"""Optional per-device scanner entities from MikroTik observations."""
 from __future__ import annotations
 
 from homeassistant.components.device_tracker import ScannerEntity, SourceType
@@ -46,7 +46,7 @@ class MikMiTracker(CoordinatorEntity, ScannerEntity):
 
     @property
     def available(self):
-        return self._record.get("online") != "unknown"
+        return True
 
     @property
     def is_connected(self):
@@ -77,9 +77,9 @@ class MikMiTracker(CoordinatorEntity, ScannerEntity):
 
     @property
     def hostname(self):
-        return self._record.get("host_name") or self._record.get("xiaomi_name")
+        return self._record.get("host_name")
 
     @property
     def extra_state_attributes(self):
         return {key: self._record.get(key) for key in
-                ("comment", "dhcp_dynamic", "dhcp_status", "connection", "ap_name", "port", "wifi_band", "wifi_signal", "last_seen", "evidence", "confidence")}
+                ("comment", "dhcp_dynamic", "dhcp_status", "connection", "ap_name", "port", "last_seen", "evidence", "confidence")}

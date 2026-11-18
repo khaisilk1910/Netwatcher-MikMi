@@ -1,7 +1,7 @@
-"""Pure deterministic inventory correlation. No Home Assistant dependency.
+"""MikroTik-only device inventory. DHCP leases are not online evidence.
 
-DHCP `bound` is an address lease, NOT proof that a client is online.
-Xiaomi client lists can aggregate a whole mesh; no node is inferred by default.
+RouterOS ARP/FDB entries can outlive a disconnected Wi-Fi client; the resulting
+presence is a best-effort observation, not proof of an active Wi-Fi association.
 """
 from __future__ import annotations
 
@@ -17,256 +17,200 @@ def _yes(value: Any) -> bool:
     return str(value).lower() in ("true", "yes", "1")
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _fresh(record: dict[str, Any], now: float, seconds: int) -> bool:
-    return (now - float(record.get("last_seen_epoch", 0) or 0)) <= seconds
-
-
 class Inventory:
-    """Persistent MAC inventory, independent of polling implementation."""
+    """Persistent MAC inventory with version-independent migration."""
 
     def __init__(self, state: dict[str, Any] | None = None):
         source = state or {}
         self.devices: dict[str, dict[str, Any]] = dict(source.get("devices", {}))
-        self.baseline_complete: bool = bool(source.get("baseline_complete", False))
+        self.baseline_complete = bool(source.get("baseline_complete", False))
         self.max_devices = MAX_DEVICES
+        for record in self.devices.values():
+            old_status = record.get("online")
+            record["online"] = "online" if old_status == "online" else "offline"
+            record.setdefault("last_good_online", "online" if old_status == "online" else "offline")
+            # Link evidence from a retired collector must never be treated as current.
+            for key in tuple(record):
+                if key in ("wifi_band", "wifi_signal", "xiaomi_name"):
+                    record.pop(key, None)
+            if (record.get("connection") == "wifi" and record.get("evidence") != "mikrotik_wifi_registration") or str(record.get("evidence", "")).startswith(("xiaomi_", "verified_direct_ap_")):
+                record["connection"] = None
+                record["port"] = None
+                record["ap_name"] = None
+                record["evidence"] = "not_verified"
+                record["confidence"] = "low"
+            elif record.get("connection") not in ("lan", "wifi"):
+                record["connection"] = None
 
     def dump(self) -> dict[str, Any]:
         return {"baseline_complete": self.baseline_complete, "devices": self.devices}
 
-    def ingest(
-        self,
-        router: dict[str, list[dict[str, str]]] | None,
-        wifi: list[dict[str, Any]] | None,
-        timestamp: float,
-        offline_after: int,
-        direct_hosts: set[str],
-        lan_ports: set[str],
-        alert_existing: bool = False,
-        wifi_complete: bool = True,
-        xiaomi_configured: bool = False,
-    ) -> list[dict[str, Any]]:
-        """Return notification events. Partial source failures never cause false offline."""
-        events: list[dict[str, Any]] = []
-        router_ok = router is not None
-        wifi_ok = wifi is not None and wifi_complete
-        first_router_snapshot = router_ok and not self.baseline_complete
-        live: set[str] = set()
-        wifi_macs: set[str] = set()
-        lease_macs: set[str] = set()
+    def ingest(self, router: dict[str, list[dict[str, str]]] | None,
+               timestamp: float, offline_after: int, lan_ports: set[str],
+               alert_existing: bool = False) -> list[dict[str, Any]]:
+        """Ingest a complete RouterOS snapshot, never alert on a source failure.
+
+        The UI has exactly two device states. On a failed read, it shows Offline
+        but retains last_good_online to avoid a synthetic reconnection alert.
+        """
+        if router is None:
+            for record in self.devices.values():
+                record["online"] = "offline"
+            return []
+
         now = datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+        first_snapshot = not self.baseline_complete
+        live: set[str] = set()
+        lease_macs: set[str] = set()
+        events: list[dict[str, Any]] = []
 
         def get_record(mac: str) -> dict[str, Any] | None:
             if mac not in self.devices:
                 if len(self.devices) >= self.max_devices:
                     return None
                 self.devices[mac] = {
-                    "mac": mac,
-                    "first_seen": now,
-                    "first_seen_epoch": timestamp,
-                    "last_seen": None,
-                    "last_seen_epoch": 0,
-                    "online": "unknown",
-                    "approved": False,
+                    "mac": mac, "first_seen": now, "first_seen_epoch": timestamp,
+                    "last_seen": None, "last_seen_epoch": 0,
+                    "online": "offline", "last_good_online": "offline", "approved": False,
                     "alerted_dynamic": False,
-                    "baseline_exempt": (first_router_snapshot and not alert_existing) or (not self.baseline_complete and not alert_existing),
-                    "connection": "unknown",
-                    "ap_name": None,
-                    "ip": None,
-                    "comment": "",
-                    "host_name": "",
-                    "dhcp_dynamic": None,
-                    "dhcp_status": "unmanaged",
-                    "evidence": "none",
-                    "confidence": "low",
+                    "baseline_exempt": first_snapshot and not alert_existing,
+                    "connection": None, "port": None, "ap_name": None,
+                    "ip": None, "comment": "", "host_name": "",
+                    "dhcp_dynamic": None, "dhcp_status": "unmanaged",
+                    "evidence": "none", "confidence": "low",
                 }
             return self.devices[mac]
 
-        if router_ok:
-            for lease in router.get("leases", []):
-                mac = mac_normalize(lease.get("active-mac-address") or lease.get("mac-address"))
-                if mac is None:
-                    continue
-                record = get_record(mac)
-                if record is None:
-                    continue
-                lease_macs.add(mac)
-                bound = str(lease.get("status", "")).lower() == "bound"
-                dynamic = _yes(lease.get("dynamic"))
-                record["dhcp_dynamic"] = dynamic
-                record["dhcp_status"] = str(lease.get("status") or "unknown")
-                record["comment"] = str(lease.get("comment") or "")[:160]
-                record["host_name"] = str(lease.get("host-name") or "")[:120]
-                ip = (lease.get("active-address") if bound else None) or lease.get("address")
-                if ip:
-                    record["ip"] = str(ip)[:64]
-                record["dhcp_server"] = str(lease.get("server") or "")[:80]
-                # Alert only after presence evidence is correlated below. A
-                # still-bound DHCP lease alone is not an online observation.
-
-            # Reclassify records not present in CURRENT DHCP snapshot, never infer dynamic.
-            for mac, record in self.devices.items():
-                if mac not in lease_macs:
-                    record["dhcp_dynamic"] = None
-                    record["dhcp_status"] = "unmanaged"
-
-            for arp in router.get("arp", []):
-                mac = mac_normalize(arp.get("mac-address"))
-                if not mac or _yes(arp.get("disabled")):
-                    continue
-                # Some RouterOS versions omit `complete`; a MAC means an ARP mapping exists.
-                if str(arp.get("complete", "true")).lower() in ("false", "no", "0"):
-                    continue
-                record = get_record(mac)
-                if record is None:
-                    continue
-                live.add(mac)
-                if mac not in lease_macs and arp.get("address"):
-                    record["ip"] = str(arp["address"])[:64]
-                record["evidence"] = "mikrotik_arp"
-                record["confidence"] = "medium"
-
-            # Only ports explicitly marked as single-device LAN endpoint are LAN proof.
-            # Bridge FDB may include switches/APs and is not presence proof.
-            fdb: dict[str, set[str]] = {}
-            for host in router.get("bridge_hosts", []):
-                mac = mac_normalize(host.get("mac-address"))
-                interface = str(host.get("on-interface", ""))
-                if mac and interface in lan_ports and not _yes(host.get("local")):
-                    fdb.setdefault(mac, set()).add(interface)
-            for mac, interfaces in fdb.items():
-                if len(interfaces) == 1:
-                    record = get_record(mac)
-                    if record is not None:
-                        record["connection"] = "lan"
-                        record["port"] = next(iter(interfaces))
-                        record["ap_name"] = None
-                        record["evidence"] = "mikrotik_bridge_host_direct_port"
-                        record["confidence"] = "medium"
-
-        if wifi is not None:
-            # An AP can return aggregate mesh clients. Use source host as AP only
-            # after explicit administrator confirmation, AND no duplicate origins.
-            grouped: dict[str, list[dict[str, Any]]] = {}
-            for observation in wifi:
-                mac = mac_normalize(observation.get("mac"))
-                if mac:
-                    grouped.setdefault(mac, []).append(observation)
-            for mac, observations in grouped.items():
-                record = get_record(mac)
-                if record is None:
-                    continue
-                active = [obs for obs in observations if obs.get("online") is True]
-                if not active:
-                    continue
-                wifi_macs.add(mac)
-                live.add(mac)
-                obs = active[0]
-                if obs.get("ip") and mac not in lease_macs:
-                    record["ip"] = str(obs["ip"])[:64]
-                if obs.get("name"):
-                    record["xiaomi_name"] = str(obs["name"])[:120]
-                record["wifi_signal"] = obs.get("signal")
-                record["wifi_band"] = str(obs.get("band") or "")[:20]
-                # The MiWiFi library can report wired/aggregate clients; only
-                # signal or band is a hint that the association is wireless.
-                signal = obs.get("signal")
-                wireless_hint = bool(obs.get("band")) or (
-                    isinstance(signal, (int, float)) and not isinstance(signal, bool)
-                    and -120 <= signal <= 100 and signal != 0
-                )
-                if wireless_hint:
-                    record["connection"] = "wifi"
-                    record["evidence"] = "xiaomi_wireless_client"
-                    record["confidence"] = "medium"
-                    sources = {o.get("source_host") for o in active}
-                    source = next(iter(sources)) if len(sources) == 1 else None
-                    if source in direct_hosts:
-                        record["ap_name"] = str(obs.get("source_name") or source)[:80]
-                        record["confidence"] = "high"
-                        record["evidence"] = "verified_direct_ap_client_list"
-                    else:
-                        record["ap_name"] = None
-                elif record.get("connection") != "lan":
-                    record["connection"] = "unknown"
-                    record["ap_name"] = None
-                    record["evidence"] = "xiaomi_client_without_radio_evidence"
-                    record["confidence"] = "low"
+        for lease in router.get("leases", []):
+            mac = mac_normalize(lease.get("active-mac-address") or lease.get("mac-address"))
+            if mac is None:
+                continue
+            record = get_record(mac)
+            if record is None:
+                continue
+            lease_macs.add(mac)
+            bound = str(lease.get("status", "")).lower() == "bound"
+            record["dhcp_dynamic"] = _yes(lease.get("dynamic"))
+            record["dhcp_status"] = str(lease.get("status") or "unmanaged")
+            record["comment"] = str(lease.get("comment") or "")[:160]
+            record["host_name"] = str(lease.get("host-name") or "")[:120]
+            ip = (lease.get("active-address") if bound else None) or lease.get("address")
+            if ip:
+                record["ip"] = str(ip)[:64]
+            record["dhcp_server"] = str(lease.get("server") or "")[:80]
 
         for mac, record in self.devices.items():
-            previous = record.get("online", "unknown")
+            if mac not in lease_macs:
+                record["dhcp_dynamic"] = None
+                record["dhcp_status"] = "unmanaged"
+
+        for arp in router.get("arp", []):
+            mac = mac_normalize(arp.get("mac-address"))
+            if not mac or _yes(arp.get("disabled")):
+                continue
+            if str(arp.get("complete", "true")).lower() in ("false", "no", "0"):
+                continue
+            record = get_record(mac)
+            if record is None:
+                continue
+            live.add(mac)
+            if mac not in lease_macs and arp.get("address"):
+                record["ip"] = str(arp["address"])[:64]
+            record["evidence"] = "mikrotik_arp_cache"
+            record["confidence"] = "low"  # RouterOS may retain entries after disconnect.
+
+        # Only known single-device endpoint ports warrant classifying as wired.
+        fdb: dict[str, set[str]] = {}
+        for host in router.get("bridge_hosts", []):
+            mac = mac_normalize(host.get("mac-address"))
+            interface = str(host.get("on-interface", ""))
+            if mac and interface in lan_ports and not _yes(host.get("local")):
+                fdb.setdefault(mac, set()).add(interface)
+        for mac, interfaces in fdb.items():
+            if len(interfaces) != 1:
+                continue
+            record = get_record(mac)
+            if record is not None:
+                record["connection"] = "lan"
+                record["port"] = next(iter(interfaces))
+                record["ap_name"] = None
+                record["evidence"] = "mikrotik_direct_lan_port"
+                record["confidence"] = "medium"
+
+        # MikroTik wireless registration lists are optional and may be empty on
+        # hardware without RouterOS WiFi packages or with different permissions.
+        associated_macs: set[str] = set()
+        for table in ("wifi_registration", "wireless_registration"):
+            for station in router.get(table, []):
+                mac = mac_normalize(station.get("mac-address"))
+                if not mac or _yes(station.get("disabled")):
+                    continue
+                record = get_record(mac)
+                if record is None:
+                    continue
+                live.add(mac)
+                associated_macs.add(mac)
+                record["connection"] = "wifi"
+                record["wifi_table"] = table
+                record["ap_name"] = str(station.get("interface") or "")[:80] or None
+                record["port"] = record["ap_name"]
+                record["evidence"] = "mikrotik_wifi_registration"
+                record["confidence"] = "high"
+
+        # An ARP mapping is a cache, not a live radio connection. Once a MAC
+        # was observed on MikroTik's own Wi-Fi registration table, a healthy
+        # current table that lacks that station takes priority over cached ARP.
+        # An optional-table API error must never be interpreted as no clients.
+        unverified_wifi: set[str] = set()
+        for mac, record in self.devices.items():
+            table = record.get("wifi_table")
+            if table in ("wifi_registration", "wireless_registration") and mac not in associated_macs:
+                live.discard(mac)
+                if router.get(f"{table}_ok") is not True:
+                    unverified_wifi.add(mac)
+
+        for mac, record in self.devices.items():
+            # last_good_online reflects only successful polls. Never use an
+            # unavailable-source UI state for event transition decisions.
+            previous = record.get("last_good_online", "offline")
             if mac in live:
                 record["last_seen_epoch"] = timestamp
                 record["last_seen"] = now
-                record["online"] = "online"
-                if previous == "offline":
+                new_status = "online"
+                if previous == "offline" and not first_snapshot and record.get("last_good_seen", False):
                     events.append({"type": "connected", "mac": mac})
-                if (record.get("dhcp_dynamic") is True and
-                        record.get("dhcp_status") == "bound" and
-                        not record.get("alerted_dynamic") and
-                        not record.get("baseline_exempt")):
+                if record.get("dhcp_dynamic") is True and record.get("dhcp_status") == "bound" and not record.get("alerted_dynamic") and not record.get("baseline_exempt"):
                     record["alerted_dynamic"] = True
                     events.append({"type": "new_dynamic", "mac": mac, "ip": record.get("ip"),
                                    "comment": record.get("comment"), "name": self.display_name(record),
                                    "first_seen": record.get("first_seen")})
-                continue
-            # Never mark offline unless MikroTik AND every configured Wi-Fi
-            # collector produced a valid snapshot; no mass-disconnect on failures.
-            all_healthy = router_ok and (not xiaomi_configured or wifi_ok)
-            if not all_healthy:
-                record["online"] = "unknown"
-            elif (float(record.get("last_seen_epoch") or 0) > 0
-                  and not _fresh(record, timestamp, offline_after)):
-                record["online"] = "offline"
-                if previous == "online":
-                    events.append({"type": "disconnected", "mac": mac})
-            elif not record.get("last_seen_epoch") and self._unseen_expired(record, timestamp, offline_after):
-                # Historical DHCP-only entry, never confirmed online. A full
-                # healthy snapshot plus a grace period permits Offline, but
-                # must not trigger a synthetic disconnect notification.
-                record["online"] = "offline"
             else:
-                # Preserve the last online state during the offline grace
-                # period. Otherwise a 30-second poll overwrites it with
-                # 'unknown' and the eventual offline transition is never sent.
-                if record.get("last_seen_epoch") and _fresh(record, timestamp, offline_after):
-                    record["online"] = previous if previous == "online" else "unknown"
-                else:
-                    record["online"] = "unknown"
+                last_seen = float(record.get("last_seen_epoch") or 0)
+                new_status = "online" if previous == "online" and last_seen and timestamp - last_seen < offline_after else "offline"
+                if (new_status == "offline" and previous == "online" and not first_snapshot
+                        and mac not in unverified_wifi):
+                    events.append({"type": "disconnected", "mac": mac})
+            record["online"] = new_status
+            if mac in unverified_wifi:
+                # RouterOS radio table failed; the two-state UI may show
+                # Offline but must not generate a synthetic transition.
+                continue
+            record["last_good_online"] = new_status
+            record["last_good_seen"] = True
 
-        if router_ok:
-            self.baseline_complete = True
+        self.baseline_complete = True
         return events
 
     @staticmethod
-    def _unseen_expired(record: dict[str, Any], timestamp: float, offline_after: int) -> bool:
-        first = record.get("first_seen_epoch")
-        if first is None:
-            # Upgrade of persisted v0.4.1 inventories (ISO first_seen only).
-            try:
-                first = datetime.fromisoformat(str(record.get("first_seen") or "")).timestamp()
-            except (TypeError, ValueError, OverflowError):
-                return False
-            record["first_seen_epoch"] = first
-        try:
-            return timestamp - float(first) >= offline_after
-        except (TypeError, ValueError, OverflowError):
-            return False
-
-    @staticmethod
     def display_name(record: dict[str, Any]) -> str:
-        return str(record.get("alias") or record.get("comment") or record.get("xiaomi_name") or record.get("host_name") or record["mac"])
+        return str(record.get("alias") or record.get("comment") or record.get("host_name") or record.get("mac") or "Device")
 
     def statistics(self) -> dict[str, int]:
         data = self.devices.values()
         return {
             "total": len(self.devices),
             "online": sum(d.get("online") == "online" for d in data),
-            "offline": sum(d.get("online") == "offline" for d in data),
-            "unknown": sum(d.get("online") == "unknown" for d in data),
+            "offline": sum(d.get("online") != "online" for d in data),
             "dynamic": sum(d.get("dhcp_dynamic") is True for d in data),
             "unapproved": sum(not d.get("approved", False) for d in data),
         }
@@ -276,14 +220,14 @@ class Inventory:
         needle = search.strip().casefold()[:100]
         filtered = []
         for record in self.devices.values():
-            if status in ("online", "offline", "unknown") and record.get("online") != status:
+            if status in ("online", "offline") and record.get("online") != status:
                 continue
             if status == "dynamic" and record.get("dhcp_dynamic") is not True:
                 continue
             if status == "unapproved" and record.get("approved") is True:
                 continue
             name = self.display_name(record)
-            if needle and needle not in " ".join(str(record.get(k) or "") for k in ("mac", "ip", "comment", "host_name", "xiaomi_name", "alias", "ap_name", "port")).casefold():
+            if needle and needle not in " ".join(str(record.get(k) or "") for k in ("mac", "ip", "comment", "host_name", "alias", "ap_name", "port")).casefold():
                 continue
             filtered.append({**record, "name": name})
         if sort_by == "name":
