@@ -77,7 +77,11 @@ def normalize_hardware(raw: dict[str, Any], previous: dict[str, Any] | None = No
     """
     previous = previous or {}
     r = (raw.get("resource") or [{}])[0]
-    b = (raw.get("routerboard") or [{}])[0] if "routerboard" in raw else previous.get("board", {})
+    # /system/routerboard is polled slowly; its previous normalized keys are
+    # firmware/upgrade_firmware, not RouterOS current-firmware/upgrade-firmware.
+    # Preserve these values when the command was skipped or returned no rows.
+    b = (raw.get("routerboard") or [{}])[0] if "routerboard" in raw else {}
+    prior_board = previous.get("board", {})
     total_ram = byte_count(r.get("total-memory"))
     free_ram = byte_count(r.get("free-memory"))
     total_disk = byte_count(r.get("total-hdd-space"))
@@ -130,13 +134,13 @@ def normalize_hardware(raw: dict[str, Any], previous: dict[str, Any] | None = No
         "readings": readings,
         "sensors": sensors,
         "board": {
-            "model": clean_label(b.get("model") or r.get("board-name") or previous.get("board", {}).get("model") or "MikroTik"),
+            "model": clean_label(b.get("model") or prior_board.get("model") or r.get("board-name") or "MikroTik"),
             "architecture": clean_label(r.get("architecture-name")),
             "cpu_name": clean_label(r.get("cpu")),
             "platform": clean_label(r.get("platform")),
             "routeros_version": clean_label(r.get("version")),
-            "firmware": clean_label(b.get("current-firmware")),
-            "upgrade_firmware": clean_label(b.get("upgrade-firmware")),
+            "firmware": clean_label(b.get("current-firmware") or prior_board.get("firmware")),
+            "upgrade_firmware": clean_label(b.get("upgrade-firmware") or prior_board.get("upgrade_firmware")),
             # Never expose serial number via WebSocket or HA recorder.
         },
         "sampled_at": time.time(),

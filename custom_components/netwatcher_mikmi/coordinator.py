@@ -31,6 +31,7 @@ from .inventory import Inventory
 from .log_monitor import RouterLogMonitor
 from .zalo import ZaloNotifier
 from .routeros import RouterOSReader
+from .xiaomi_collector import fetch_xiaomi_clients
 from .traffic import InterfaceRateTracker, choose_wan
 from .security import parse_hosts, port_names
 
@@ -92,32 +93,18 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _poll_xiaomi_host(self, host: str) -> list[dict[str, Any]]:
         client = self._wifi_clients.get(host)
         if client is None:
-            client = MiWiFiClient(host, password=self._settings[CONF_XIAOMI_PASSWORD], session=async_get_clientsession(self.hass))
+            client = MiWiFiClient(host, password=self._settings[CONF_XIAOMI_PASSWORD],
+                                 session=async_get_clientsession(self.hass))
             self._wifi_clients[host] = client
-        async with asyncio.timeout(12):
-            try:
-                status = await client.async_get_status()
-                if not status.online:
-                    raise ConnectionError("MiWiFi status offline")
-                clients = await client.async_get_clients()
-            except Exception:
-                # Reauthenticate once. Do not expose the credentials/cookie in a log.
-                await client.async_login()
-                status = await client.async_get_status()
-                if not status.online:
-                    raise ConnectionError("MiWiFi status offline")
-                clients = await client.async_get_clients()
-        name = str(getattr(status, "name", None) or host)[:80]
-        return [{
-            "mac": getattr(c, "mac", ""),
-            "ip": getattr(c, "ip", None),
-            "name": getattr(c, "name", None),
-            "online": getattr(c, "online", False),
-            "band": getattr(c, "band", None),
-            "signal": getattr(c, "signal", None),
-            "source_host": host,
-            "source_name": name,
-        } for c in clients]
+        # MiWiFiClient already refreshes expired auth tokens on a 401 response.
+        # A heavyweight status request and unconditional login retry made the
+        # previous 12s timeout likely even for reachable routers.
+        try:
+            return await fetch_xiaomi_clients(client, host)
+        except Exception:
+            # Next scheduled poll gets a fresh client/token. Do not log secrets.
+            self._wifi_clients.pop(host, None)
+            raise
 
     def _schedule_logs(self) -> None:
         """Separate polling path: router log I/O NEVER blocks inventory refresh."""

@@ -1,4 +1,4 @@
-/* Netwatcher MikMi Lovelace Card v0.4.1-beta.1 (no dependencies, no credentials).
+/* Netwatcher MikMi Lovelace Card v0.4.1-beta.2 (no dependencies, no credentials).
  * All device-provided strings are inserted with textContent, never innerHTML.
  * Backend WebSocket checks administrator privileges on every request.
  */
@@ -470,7 +470,10 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._message.className='small';
     this._message.textContent = data.baseline_complete ? '' : 'Waiting for initial MikroTik snapshot; alerts will be baselined.';
     const sources = data.source_health || {};
-    this._health.textContent = `MikroTik: ${sources.mikrotik?.ok ? 'OK':'Unavailable'} | Xiaomi: ${sources.xiaomi?.ok ? 'OK':'Unavailable'}`;
+    const xiaomi = sources.xiaomi || {};
+    const xiaomiState = xiaomi.error==='disabled' ? 'Chưa cấu hình' : xiaomi.ok ? 'OK'
+      : `Unavailable (${xiaomi.error||'chưa xác định'})`;
+    this._health.textContent = `MikroTik: ${sources.mikrotik?.ok ? 'OK':'Unavailable'} | Xiaomi: ${xiaomiState}`;
     this._stats.replaceChildren();
     [['total','Total','devices','cyan'],['online','Online','online','green'],['offline','Offline','offline','red'],
       ['unknown','Unknown','unknown','muted'],['dynamic','DHCP Dynamic','dynamic','amber'],
@@ -481,7 +484,7 @@ class NetwatcherMikMiCard extends HTMLElement {
       elt('strong',box,data.statistics[key]||0);
     });
     this._table.replaceChildren();
-    const headers = ['Device','IP','State','Link',...(this._config.show_ap===false?[]:['AP / port']),...(this._config.show_dhcp===false?[]:['DHCP']),'Approved'];
+    const headers = ['Device','IP','State','Link',...(this._config.show_ap===false?[]:['AP / port']),...(this._config.show_dhcp===false?[]:['DHCP']),'Approved (local)'];
     const head=elt('thead',this._table), tr=elt('tr',head);
     headers.forEach(h=>elt('th',tr,h));
     const body=elt('tbody',this._table);
@@ -498,7 +501,11 @@ class NetwatcherMikMiCard extends HTMLElement {
       elt('span',statePill,d.online||'unknown');
       const connTd=elt('td',row);const conn=elt('div',connTd,null,'connection-pill');
       miIcon(conn,d.connection==='wifi'?'wifi':d.connection==='lan'?'lan':'unknown');
-      elt('span',conn,d.connection==='wifi' ? `Wi-Fi ${d.wifi_band||''}` : (d.connection||'unknown'));
+      elt('span',conn,d.connection==='wifi' ? `Wi-Fi ${d.wifi_band||''}` :
+        d.connection==='lan' ? 'LAN (cáp)' : 'Chưa xác định');
+      conn.title=d.connection==='wifi' ? 'Có bằng chứng kết nối Wi-Fi từ Xiaomi' :
+        d.connection==='lan' ? `Port LAN trực tiếp: ${d.port||'—'}` :
+        'Chưa đủ bằng chứng LAN/Wi-Fi. Kiểm tra Xiaomi và cấu hình LAN endpoint ports.';
       if (this._config.show_ap!==false) elt('td',row,d.ap_name||d.port||'-');
       if (this._config.show_dhcp!==false) {
         const dhcpTd=elt('td',row);

@@ -65,6 +65,7 @@ class Inventory:
                 self.devices[mac] = {
                     "mac": mac,
                     "first_seen": now,
+                    "first_seen_epoch": timestamp,
                     "last_seen": None,
                     "last_seen_epoch": 0,
                     "online": "unknown",
@@ -216,10 +217,16 @@ class Inventory:
             all_healthy = router_ok and (not xiaomi_configured or wifi_ok)
             if not all_healthy:
                 record["online"] = "unknown"
-            elif record.get("last_seen_epoch") and not _fresh(record, timestamp, offline_after):
+            elif (float(record.get("last_seen_epoch") or 0) > 0
+                  and not _fresh(record, timestamp, offline_after)):
                 record["online"] = "offline"
                 if previous == "online":
                     events.append({"type": "disconnected", "mac": mac})
+            elif not record.get("last_seen_epoch") and self._unseen_expired(record, timestamp, offline_after):
+                # Historical DHCP-only entry, never confirmed online. A full
+                # healthy snapshot plus a grace period permits Offline, but
+                # must not trigger a synthetic disconnect notification.
+                record["online"] = "offline"
             else:
                 # Preserve the last online state during the offline grace
                 # period. Otherwise a 30-second poll overwrites it with
@@ -232,6 +239,21 @@ class Inventory:
         if router_ok:
             self.baseline_complete = True
         return events
+
+    @staticmethod
+    def _unseen_expired(record: dict[str, Any], timestamp: float, offline_after: int) -> bool:
+        first = record.get("first_seen_epoch")
+        if first is None:
+            # Upgrade of persisted v0.4.1 inventories (ISO first_seen only).
+            try:
+                first = datetime.fromisoformat(str(record.get("first_seen") or "")).timestamp()
+            except (TypeError, ValueError, OverflowError):
+                return False
+            record["first_seen_epoch"] = first
+        try:
+            return timestamp - float(first) >= offline_after
+        except (TypeError, ValueError, OverflowError):
+            return False
 
     @staticmethod
     def display_name(record: dict[str, Any]) -> str:
