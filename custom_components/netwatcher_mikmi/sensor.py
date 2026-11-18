@@ -17,7 +17,7 @@ METRIC_ICONS = {
 "dynamic": "mdi:alert-network",
     "unapproved": "mdi:shield-alert-outline",
 }
-SOURCE_ICONS = {"mikrotik": "mdi:router-network", "router_logs": "mdi:text-box-search-outline", "netwatch": "mdi:monitor-eye"}
+SOURCE_ICONS = {"mikrotik": "mdi:router-network", "router_logs": "mdi:text-box-search-outline"}
 
 METRICS = (
     ("total", "Devices total"),
@@ -65,9 +65,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator = runtime.coordinator
     hardware = runtime.hardware
     entities = [InventorySensor(coordinator, entry, key, name) for key, name in METRICS]
-    entities.extend(SourceSensor(coordinator, entry, key) for key in ("mikrotik", "router_logs", "netwatch"))
+    entities.extend(SourceSensor(coordinator, entry, key) for key in ("mikrotik", "router_logs"))
     entities.extend(HardwareSensor(hardware, entry, field) for field in HARDWARE_FIELDS)
-    entities.append(NetwatchDownSensor(coordinator, entry))
     entities.extend(WanTrafficSensor(coordinator, entry, direction) for direction in ("rx_bps", "tx_bps"))
     async_add_entities(entities)
 
@@ -153,24 +152,6 @@ class HardwareSensor(MikMiEntity):
             return {"alert": data.get("alerts", {}).get(self._field.source, {}),
                     "sampled_at": data.get("sampled_at")}
         return {}
-
-
-class NetwatchDownSensor(MikMiEntity):
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "probes"
-
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "netwatch_down", "MikroTik Netwatch probes down")
-        self._attr_icon = "mdi:lan-disconnect"
-
-    @property
-    def native_value(self):
-        return sum(row.get("status", "").lower() == "down" and row.get("disabled", "false").lower() != "true"
-                   for row in self.coordinator.netwatch_rows)
-
-    @property
-    def available(self):
-        return self.coordinator.source_health["netwatch"]["ok"]
 
 
 class WanTrafficSensor(MikMiEntity):

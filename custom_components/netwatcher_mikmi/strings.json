@@ -81,8 +81,6 @@
           "hardware_cooldown_minutes": "Hardware alert cooldown (minutes)",
           "hardware_notify_recovery": "✅ Notify when hardware returns to normal",
           "hardware_notify_zalo": "💬 Send hardware alerts via configured Zalo Bot",
-          "netwatch_read_enabled": "📡 Read existing RouterOS Netwatch probes (read only)",
-          "netwatch_poll_interval": "Netwatch poll interval (seconds, 60–600)",
           "router_wan_interface": "PPPoE/WAN interface name (blank = auto-detect)"
         }
       }

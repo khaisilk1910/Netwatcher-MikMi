@@ -174,14 +174,6 @@ class RouterOSReader:
             commands["routerboard"] = ("/system/routerboard/print", "model,factory-firmware,current-firmware,upgrade-firmware,routerboard", True)
         return self._connect_and_read(commands)
 
-    def fetch_netwatch(self) -> list[dict[str, str]]:
-        """Read existing RouterOS Netwatch probes (never add probes/scripts)."""
-        rows = self._connect_and_read({
-            "netwatch": ("/tool/netwatch/print", "host,name,comment,status,type,disabled,"
-                         "rtt-avg,rtt-min,rtt-max,rtt-jitter,loss-percent,since", False),
-        })["netwatch"]
-        return rows[:500]
-
     def fetch(self) -> dict[str, list[dict[str, str]]]:
         """Fetch inventory only; hardware and RouterOS logs run independently."""
         commands = {key: (command, columns, False)

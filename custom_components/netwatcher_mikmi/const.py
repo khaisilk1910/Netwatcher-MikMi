@@ -3,7 +3,7 @@ from __future__ import annotations
 
 DOMAIN = "netwatcher_mikmi"
 NAME = "Netwatcher MikMi"
-VERSION = "0.4.1-beta.6"
+VERSION = "0.4.1-beta.7"
 
 CONF_ROUTER_HOST = "router_host"
 CONF_ROUTER_PORT = "router_port"
@@ -63,8 +63,5 @@ CONF_HARDWARE_COOLDOWN = "hardware_cooldown_minutes"
 DEFAULT_HARDWARE_INTERVAL = 15
 DEFAULT_HEALTH_DETAIL_INTERVAL = 60
 EVENT_HARDWARE_ALERT = "netwatcher_mikmi_hardware_alert"
-CONF_NETWATCH_ENABLED = "netwatch_read_enabled"
-CONF_NETWATCH_INTERVAL = "netwatch_poll_interval"
-DEFAULT_NETWATCH_INTERVAL = 120
 
 CONF_WAN_INTERFACE = "router_wan_interface"

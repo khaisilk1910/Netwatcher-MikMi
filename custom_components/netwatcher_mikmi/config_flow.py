@@ -26,8 +26,7 @@ from .const import (
     CONF_HARDWARE_RAM_THRESHOLD, CONF_HARDWARE_TEMP_THRESHOLD,
     CONF_HARDWARE_SAMPLES, CONF_HARDWARE_RECOVERY, CONF_HARDWARE_ZALO,
     CONF_HARDWARE_COOLDOWN, DEFAULT_HARDWARE_INTERVAL,
-    DEFAULT_HEALTH_DETAIL_INTERVAL, CONF_NETWATCH_ENABLED,
-    CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL, CONF_WAN_INTERFACE,
+    DEFAULT_HEALTH_DETAIL_INTERVAL, CONF_WAN_INTERFACE,
 )
 from .routeros import RouterAuthError, RouterCertificateError, RouterOSReader
 from .security import fingerprint_sha256, port_names, private_ipv4, parse_recipients
@@ -180,8 +179,6 @@ class NetwatcherMikMiOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_HARDWARE_COOLDOWN, default=opts.get(CONF_HARDWARE_COOLDOWN, 30)): vol.All(vol.Coerce(int), vol.Range(min=0, max=1440)),
             vol.Required(CONF_HARDWARE_RECOVERY, default=opts.get(CONF_HARDWARE_RECOVERY, True)): bool,
             vol.Required(CONF_HARDWARE_ZALO, default=opts.get(CONF_HARDWARE_ZALO, False)): bool,
-            vol.Required(CONF_NETWATCH_ENABLED, default=opts.get(CONF_NETWATCH_ENABLED, False)): bool,
-            vol.Required(CONF_NETWATCH_INTERVAL, default=opts.get(CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=60, max=600)),
             vol.Required(CONF_NOTIFY_EXISTING, default=opts.get(CONF_NOTIFY_EXISTING, False)): bool,
             vol.Required(CONF_NOTIFY_PERSISTENT, default=opts.get(CONF_NOTIFY_PERSISTENT, True)): bool,
             vol.Required(CONF_TRACKERS, default=opts.get(CONF_TRACKERS, False)): bool,

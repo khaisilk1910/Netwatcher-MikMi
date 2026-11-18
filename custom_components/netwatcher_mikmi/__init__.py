@@ -11,10 +11,10 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback, CoreState, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import (DOMAIN, CONF_LOG_ENABLED, CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL,
-                    CONF_NETWATCH_ENABLED, CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)
+from .const import (DOMAIN, CONF_LOG_ENABLED, CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL)
 from .coordinator import MikMiCoordinator
 from .hardware_coordinator import MikMiHardwareCoordinator
 from .frontend import register_card
@@ -201,30 +201,6 @@ def ws_router_hardware(hass: HomeAssistant, connection: websocket_api.ActiveConn
     })
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/router_netwatch",
-    vol.Optional("entry_id", default=""): str,
-})
-@callback
-def ws_router_netwatch(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """Admin-only: existing Netwatch probe states; no Netwatch modification."""
-    if not connection.user.is_admin:
-        connection.send_error(msg["id"], "unauthorized", "Admin access required")
-        return
-    entries = hass.data.get(DOMAIN, {})
-    runtime = entries.get(msg["entry_id"]) if msg["entry_id"] else next(iter(entries.values()), None)
-    if runtime is None:
-        connection.send_error(msg["id"], "not_found", "Netwatcher entry not found")
-        return
-    source = runtime.coordinator.source_health["netwatch"]
-    connection.send_result(msg["id"], {
-        "entry_id": runtime.coordinator.entry.entry_id,
-        "enabled": source["error"] != "disabled",
-        "available": source["ok"],
-        "probes": runtime.coordinator.netwatch_rows,
-        "last_success": source["last_success"],
-    })
-
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     hass.data.setdefault(DOMAIN, {})
     websocket_api.async_register_command(hass, ws_inventory)
@@ -233,7 +209,6 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     websocket_api.async_register_command(hass, ws_test_zalo)
     websocket_api.async_register_command(hass, ws_router_logs)
     websocket_api.async_register_command(hass, ws_router_hardware)
-    websocket_api.async_register_command(hass, ws_router_netwatch)
 
     async def setup_frontend(_event=None):
         try:
@@ -259,7 +234,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, options=clean_options)
         _LOGGER.info("Legacy Zalo OA settings discarded; personal Zalo Bot remains opt-in")
     # Purge retired collector credentials from stored configuration on upgrade.
-    obsolete = {"xiaomi_hosts", "xiaomi_password", "acknowledge_xiaomi_http_risk", "verified_direct_ap_hosts"}
+    obsolete = {"xiaomi_hosts", "xiaomi_password", "acknowledge_xiaomi_http_risk", "verified_direct_ap_hosts",
+                "netwatch_read_enabled", "netwatch_poll_interval"}
     clean_data = {k: v for k, v in entry.data.items() if k not in obsolete}
     clean_options = {k: v for k, v in entry.options.items() if k not in obsolete}
     if clean_data != dict(entry.data) or clean_options != dict(entry.options):
@@ -291,22 +267,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.runtime_data = runtime
     hass.data[DOMAIN][entry.entry_id] = runtime
     entry.async_on_unload(entry.add_update_listener(_options_updated))
+    # Remove only the two Netwatch entities this integration created previously.
+    # No router-side probes, user-created entities or unrelated sensors are touched.
+    registry = er.async_get(hass)
+    for legacy_key in ("source_netwatch", "netwatch_down"):
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{legacy_key}")
+        if entity_id:
+            registry.async_remove(entity_id)
+            _LOGGER.info("Removed retired RouterOS monitoring entity: %s", entity_id)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Essential: slow/unreachable router MUST NOT delay Home Assistant startup.
     entry.async_create_background_task(hass, coord.async_refresh(), f"{DOMAIN} initial polling")
     entry.async_create_background_task(hass, hardware.async_refresh(), f"{DOMAIN} initial hardware polling")
-    # Independent triggers keep logs/Netwatch responsive even with a 5-min
-    # inventory interval. Their own monotonic gates prevent overlapping polls.
+    # Independent log polling is gated to avoid overlapping executor work.
     settings = {**entry.data, **entry.options}
     if settings.get(CONF_LOG_ENABLED, True):
         entry.async_on_unload(async_track_time_interval(
             hass, lambda _now: coord._schedule_logs(),
             timedelta(seconds=max(30, int(settings.get(CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL)))),
-        ))
-    if settings.get(CONF_NETWATCH_ENABLED, False):
-        entry.async_on_unload(async_track_time_interval(
-            hass, lambda _now: coord._schedule_netwatch(),
-            timedelta(seconds=max(60, int(settings.get(CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)))),
         ))
     return True
 

@@ -20,8 +20,7 @@ from .const import (
     EVENT_CONNECTED, EVENT_DISCONNECTED, EVENT_NEW_DYNAMIC,
     CONF_LOG_ENABLED, CONF_LOG_INTERVAL, CONF_WAN_ALERTS, CONF_ZALO_NOTIFY_WAN,
     CONF_LOGIN_FAIL_THRESHOLD, CONF_FIREWALL_THRESHOLD, DEFAULT_LOG_INTERVAL,
-    EVENT_WAN_SECURITY, CONF_NETWATCH_ENABLED, CONF_NETWATCH_INTERVAL,
-    DEFAULT_NETWATCH_INTERVAL, CONF_WAN_INTERFACE,
+    EVENT_WAN_SECURITY, CONF_WAN_INTERFACE,
 )
 from .inventory import Inventory
 from .log_monitor import RouterLogMonitor
@@ -44,9 +43,6 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.log_store = log_store
         self._log_next_poll = 0.0
         self._log_polling = False
-        self._netwatch_next_poll = 0.0
-        self._netwatch_polling = False
-        self.netwatch_rows: list[dict[str, Any]] = []
         settings = {**entry.data, **entry.options}
         self._settings = settings
         self._router = RouterOSReader(
@@ -61,8 +57,6 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "mikrotik": {"ok": False, "last_success": None, "error": "not_polled"},
             "router_logs": {"ok": False, "last_success": None,
                             "error": "not_polled" if settings.get(CONF_LOG_ENABLED, True) else "disabled"},
-            "netwatch": {"ok": False, "last_success": None,
-                         "error": "not_polled" if settings.get(CONF_NETWATCH_ENABLED, False) else "disabled"},
         }
         super().__init__(
             hass, _LOGGER, config_entry=entry, name=f"{DOMAIN}_{entry.entry_id}",
@@ -134,37 +128,8 @@ class MikMiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         finally:
             self._log_polling = False
 
-    def _schedule_netwatch(self) -> None:
-        """Read *existing* Netwatch checks off the inventory critical path."""
-        if not self._settings.get(CONF_NETWATCH_ENABLED, False) or self._netwatch_polling:
-            return
-        now = time.monotonic()
-        if now < self._netwatch_next_poll:
-            return
-        self._netwatch_polling = True
-        self._netwatch_next_poll = now + max(60, int(self._settings.get(CONF_NETWATCH_INTERVAL, DEFAULT_NETWATCH_INTERVAL)))
-        self.entry.async_create_background_task(
-            self.hass, self._async_poll_netwatch(), f"{DOMAIN} RouterOS Netwatch"
-        )
-
-    async def _async_poll_netwatch(self) -> None:
-        try:
-            rows = await self.hass.async_add_executor_job(self._router.fetch_netwatch)
-            allowed = {"host", "name", "comment", "status", "type", "disabled",
-                       "rtt-avg", "rtt-min", "rtt-max", "rtt-jitter", "loss-percent", "since"}
-            # Bound row count, length, and fields before showing router-supplied text.
-            self.netwatch_rows = [{k: str(v)[:180] for k, v in r.items() if k in allowed}
-                                  for r in rows[:250]]
-            self._health("netwatch", True)
-            self.async_update_listeners()
-        except Exception as exc:
-            self._health("netwatch", False, type(exc).__name__)
-        finally:
-            self._netwatch_polling = False
-
     async def _async_update_data(self) -> dict[str, Any]:
         self._schedule_logs()
-        self._schedule_netwatch()
         snapshot = None
         try:
             snapshot = await self.hass.async_add_executor_job(self._router.fetch)

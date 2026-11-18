@@ -20,8 +20,6 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "hardware_source": {"ok": bool(entry.runtime_data.hardware.last_update_success),
                             "error_category": entry.runtime_data.hardware.source_error},
         "hardware_alerts_enabled": bool(entry.options.get("hardware_alerts_enabled", False)),
-        "netwatch_enabled": bool(entry.options.get("netwatch_read_enabled", False)),
-        "netwatch_source_ok": bool(coord.source_health["netwatch"]["ok"]),
         "baseline_complete": coord.inventory.baseline_complete,
         "poll_interval": entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL),
         "zalo_enabled": bool(entry.options.get(CONF_ZALO_BOT_ENABLED, False)),
