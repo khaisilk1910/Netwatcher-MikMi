@@ -1,4 +1,4 @@
-/* Netwatcher MikMi Lovelace Card v0.4.1-beta.2 (no dependencies, no credentials).
+/* Netwatcher MikMi Lovelace Card v0.4.1-beta.3 (no dependencies, no credentials).
  * All device-provided strings are inserted with textContent, never innerHTML.
  * Backend WebSocket checks administrator privileges on every request.
  */
@@ -59,7 +59,13 @@ border:1px solid var(--divider-color);border-radius:8px;padding:8px;min-height:3
 .toolbar input{flex:1;min-width:145px}.toolbar button,.footer button{cursor:pointer}
 .table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--divider-color);white-space:nowrap}
-th{font-weight:600;color:var(--secondary-text-color)}.name{font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+th{font-weight:600;color:var(--secondary-text-color)}
+.sort-button{display:inline-flex;align-items:center;gap:7px;padding:5px 2px;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;white-space:nowrap}
+.sort-button:hover,.sort-button:focus-visible,th[aria-sort=ascending] .sort-button,th[aria-sort=descending] .sort-button{color:var(--primary-color,#38bdf8)}
+.sort-button:focus-visible{outline:2px solid var(--primary-color,#38bdf8);outline-offset:2px;border-radius:4px}
+.sort-arrow{display:inline-block;min-width:13px;text-align:center;opacity:.55;font-size:14px}
+th[aria-sort=ascending] .sort-arrow,th[aria-sort=descending] .sort-arrow{opacity:1}
+.name{font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis}
 .pill{border:1px solid var(--divider-color);border-radius:20px;padding:3px 8px;display:inline-block}
 .pill.online{color:var(--success-color,#38a169)}.pill.dynamic{color:var(--error-color,#e53e3e)}
 .footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:8px}
@@ -155,6 +161,9 @@ class NetwatcherMikMiCard extends HTMLElement {
   getCardSize() { return 5; }
   setConfig(config) {
     this._config = {...NetwatcherMikMiCard.getStubConfig(), ...config};
+    // Keep the selected sort across frontend re-renders; default stays recent-first.
+    if (!['name','ip'].includes(this._sortBy)) this._sortBy = 'recent';
+    if (!['asc','desc'].includes(this._sortDir)) this._sortDir = 'desc';
     if (!this.shadowRoot) this.attachShadow({mode: 'open'});
     this._renderBase();
     if (this._hass) this._refresh(true);
@@ -320,6 +329,7 @@ class NetwatcherMikMiCard extends HTMLElement {
           type: 'netwatcher_mikmi/inventory',entry_id:this._config.entry_id||'',
           status:this._filter?.value||'all',search:this._search?.value||'',
           offset:this._offset||0,limit:this._pageSize(),
+          sort_by:this._sortBy||'recent',sort_dir:this._sortDir||'desc',
         });
         this._entryId = data.entry_id;
         this._show(data);
@@ -486,7 +496,27 @@ class NetwatcherMikMiCard extends HTMLElement {
     this._table.replaceChildren();
     const headers = ['Device','IP','State','Link',...(this._config.show_ap===false?[]:['AP / port']),...(this._config.show_dhcp===false?[]:['DHCP']),'Approved (local)'];
     const head=elt('thead',this._table), tr=elt('tr',head);
-    headers.forEach(h=>elt('th',tr,h));
+    headers.forEach((h,index)=>{
+      const th=elt('th',tr);
+      if (index>1) { th.textContent=h; return; }
+      const field=index===0?'name':'ip';
+      const active=this._sortBy===field;
+      th.setAttribute('aria-sort',active?(this._sortDir==='asc'?'ascending':'descending'):'none');
+      const btn=elt('button',th,null,'sort-button');
+      btn.type='button';
+      const nextDir=active&&this._sortDir==='asc'?'desc':'asc';
+      btn.setAttribute('aria-label',`Sort ${h} ${nextDir==='asc'?'ascending':'descending'}`);
+      btn.title=`Sort ${h} ${nextDir==='asc'?'A to Z / low to high':'Z to A / high to low'}`;
+      elt('span',btn,h);
+      const arrow=elt('span',btn,active?(this._sortDir==='asc'?'↑':'↓'):'↕','sort-arrow');
+      arrow.setAttribute('aria-hidden','true');
+      btn.addEventListener('click',()=>{
+        this._sortDir=this._sortBy===field&&this._sortDir==='asc'?'desc':'asc';
+        this._sortBy=field;
+        this._offset=0;
+        this._refresh(true);
+      });
+    });
     const body=elt('tbody',this._table);
     for (const d of data.devices) {
       const row=elt('tr',body);
@@ -517,11 +547,14 @@ class NetwatcherMikMiCard extends HTMLElement {
       const approve=elt('button',td,d.approved?'Approved':'Approve','approve');
       approve.title = d.approved ? 'Unapprove device locally' : 'Mark device as approved locally (does not change MikroTik)';
       approve.addEventListener('click', async () => {
-        if (!window.confirm(`${d.approved ? 'Remove approval from' : 'Approve'} ${d.name || d.mac}?`)) return;
+        // Approval is only a reversible local inventory flag; no confirmation dialog.
         approve.disabled=true;
         try {
           await this._hass.callWS({type:'netwatcher_mikmi/approve',entry_id:this._entryId,mac:d.mac,approved:!d.approved});
-          this._refresh(true);
+          d.approved=!d.approved;
+          approve.textContent=d.approved?'Approved':'Approve';
+          approve.title=d.approved?'Unapprove device locally':'Mark device as approved locally (does not change MikroTik)';
+          await this._refresh(true);
         } catch(_error) { this._message.textContent='Cannot change local approval.'; }
         finally {approve.disabled=false;}
       });
